@@ -487,10 +487,11 @@ def _map_binary_content_to_prompt_content(
 def _normalize_prompt_content(
     content: list[PromptMessageContentUnionTypes],
 ) -> str | list[PromptMessageContentUnionTypes] | None:
+    """Collapse text-only content into the string shape expected by daemon plugins."""
     if not content:
         return None
-    if len(content) == 1 and isinstance(content[0], TextPromptMessageContent):
-        return content[0].data
+    if all(isinstance(item, TextPromptMessageContent) for item in content):
+        return "".join(item.data for item in content)
     return content
 
 

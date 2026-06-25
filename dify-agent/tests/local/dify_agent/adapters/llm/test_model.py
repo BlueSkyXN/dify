@@ -241,6 +241,41 @@ class DifyLLMAdapterModelTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.parts[0].part_kind, "text")
         self.assertEqual(cast(TextPart, response.parts[0]).content, "adapter response")
 
+    async def test_request_flattens_text_only_assistant_history_parts(self) -> None:
+        messages = [
+            ModelRequest(parts=[SystemPromptPart("request system"), UserPromptPart("hello")]),
+            ModelResponse(parts=[TextPart(content="previous "), TextPart(content="answer")]),
+            ModelRequest(parts=[UserPromptPart("follow up")]),
+        ]
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            payload = cast(dict[str, object], json.loads(request.content.decode("utf-8")))
+            data = cast(dict[str, object], payload["data"])
+            prompt_messages = cast(list[dict[str, object]], data["prompt_messages"])
+
+            self.assertEqual([message["role"] for message in prompt_messages], ["system", "user", "assistant", "user"])
+            self.assertEqual(prompt_messages[2]["content"], "previous answer")
+
+            return build_stream_response(*single_text_chunk("adapter response", prompt_tokens=11, completion_tokens=7))
+
+        async with self.mock_daemon_stream(httpx.MockTransport(handler)):
+            adapter = DifyLLMAdapterModel(
+                "demo-model",
+                self.make_provider(),
+                model_provider="openai",
+                credentials={"api_key": "secret"},
+            )
+
+            response = await adapter.request(
+                messages,
+                model_settings=None,
+                model_request_parameters=ModelRequestParameters(),
+            )
+
+        self.assertEqual(response.model_name, "demo-model")
+        self.assertEqual(response.parts[0].part_kind, "text")
+        self.assertEqual(cast(TextPart, response.parts[0]).content, "adapter response")
+
     async def test_request_omits_empty_assistant_history_when_response_has_no_content_or_tool_calls(self) -> None:
         messages = [
             ModelRequest(parts=[SystemPromptPart("request system"), UserPromptPart("hello")]),
