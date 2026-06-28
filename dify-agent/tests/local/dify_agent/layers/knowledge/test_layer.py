@@ -1,9 +1,10 @@
 import asyncio
 import json
+from typing import Any, cast
 
 import httpx
 import pytest
-from pydantic_ai import Tool
+from pydantic_ai import RunContext, Tool
 
 from agenton.compositor import Compositor, LayerNode, LayerProvider
 from dify_agent.layers.execution_context import DifyExecutionContextLayerConfig
@@ -79,6 +80,10 @@ def _knowledge_provider() -> LayerProvider[DifyKnowledgeBaseLayer]:
     )
 
 
+def _test_run_context() -> RunContext[Any]:
+    return cast(RunContext[Any], cast(object, None))
+
+
 def test_knowledge_layer_exposes_one_set_scoped_tool_definition() -> None:
     async def scenario() -> None:
         compositor = Compositor(
@@ -99,8 +104,10 @@ def test_knowledge_layer_exposes_one_set_scoped_tool_definition() -> None:
                 tool_def = await tool.prepare_tool_def(None)  # pyright: ignore[reportArgumentType]
                 assert isinstance(tool, Tool)
                 assert tool.name == "knowledge_base_search"
+                assert tool.description is not None
                 assert "Pick one configured set_name" in tool.description
                 assert tool_def is not None
+                assert tool_def.description is not None
                 assert "Pick one configured set_name" in tool_def.description
                 assert tool_def.parameters_json_schema == {
                     "type": "object",
@@ -139,8 +146,8 @@ def test_knowledge_layer_rejects_blank_query_locally() -> None:
             ) as run:
                 knowledge_layer = run.get_layer("knowledge", DifyKnowledgeBaseLayer)
                 tool = (await knowledge_layer.get_tools(http_client=http_client))[0]
-                result = await tool.function_schema.call(  # pyright: ignore[reportArgumentType]
-                    {"set_name": "Support KB", "query": "   "}, None
+                result = await tool.function_schema.call(
+                    {"set_name": "Support KB", "query": "   "}, _test_run_context()
                 )
                 assert result == BLANK_QUERY_OBSERVATION
 
@@ -312,8 +319,8 @@ def test_knowledge_layer_formats_results_and_truncates_observation() -> None:
             ) as run:
                 knowledge_layer = run.get_layer("knowledge", DifyKnowledgeBaseLayer)
                 tool = (await knowledge_layer.get_tools(http_client=http_client))[0]
-                result = await tool.function_schema.call(  # pyright: ignore[reportArgumentType]
-                    {"set_name": "Support KB", "query": "reset"}, None
+                result = await tool.function_schema.call(
+                    {"set_name": "Support KB", "query": "reset"}, _test_run_context()
                 )
                 assert result.startswith("Knowledge base search results:\n1. Title: Guide")
                 assert "Dataset: Docs" in result
@@ -344,8 +351,8 @@ def test_knowledge_layer_returns_no_results_observation() -> None:
             ) as run:
                 knowledge_layer = run.get_layer("knowledge", DifyKnowledgeBaseLayer)
                 tool = (await knowledge_layer.get_tools(http_client=http_client))[0]
-                result = await tool.function_schema.call(  # pyright: ignore[reportArgumentType]
-                    {"set_name": "Support KB", "query": "reset"}, None
+                result = await tool.function_schema.call(
+                    {"set_name": "Support KB", "query": "reset"}, _test_run_context()
                 )
                 assert result == NO_RESULTS_OBSERVATION
 
@@ -373,8 +380,8 @@ def test_knowledge_layer_converts_retryable_failures_into_observation() -> None:
             ) as run:
                 knowledge_layer = run.get_layer("knowledge", DifyKnowledgeBaseLayer)
                 tool = (await knowledge_layer.get_tools(http_client=http_client))[0]
-                result = await tool.function_schema.call(  # pyright: ignore[reportArgumentType]
-                    {"set_name": "Support KB", "query": "reset"}, None
+                result = await tool.function_schema.call(
+                    {"set_name": "Support KB", "query": "reset"}, _test_run_context()
                 )
                 assert result == TEMPORARY_UNAVAILABLE_OBSERVATION
 
@@ -408,8 +415,8 @@ def test_knowledge_layer_converts_retryable_transport_failures_into_observation(
             ) as run:
                 knowledge_layer = run.get_layer("knowledge", DifyKnowledgeBaseLayer)
                 tool = (await knowledge_layer.get_tools(http_client=http_client))[0]
-                result = await tool.function_schema.call(  # pyright: ignore[reportArgumentType]
-                    {"set_name": "Support KB", "query": "reset"}, None
+                result = await tool.function_schema.call(
+                    {"set_name": "Support KB", "query": "reset"}, _test_run_context()
                 )
                 assert result == TEMPORARY_UNAVAILABLE_OBSERVATION
 
@@ -438,8 +445,8 @@ def test_knowledge_layer_raises_non_retryable_client_errors() -> None:
                 knowledge_layer = run.get_layer("knowledge", DifyKnowledgeBaseLayer)
                 tool = (await knowledge_layer.get_tools(http_client=http_client))[0]
                 with pytest.raises(DifyKnowledgeBaseClientError) as exc_info:
-                    await tool.function_schema.call(  # pyright: ignore[reportArgumentType]
-                        {"set_name": "Support KB", "query": "reset"}, None
+                    await tool.function_schema.call(
+                        {"set_name": "Support KB", "query": "reset"}, _test_run_context()
                     )
                 assert exc_info.value.status_code == 403
 
@@ -466,8 +473,8 @@ def test_knowledge_layer_raises_for_malformed_success_responses() -> None:
                 knowledge_layer = run.get_layer("knowledge", DifyKnowledgeBaseLayer)
                 tool = (await knowledge_layer.get_tools(http_client=http_client))[0]
                 with pytest.raises(DifyKnowledgeBaseClientError) as exc_info:
-                    await tool.function_schema.call(  # pyright: ignore[reportArgumentType]
-                        {"set_name": "Support KB", "query": "reset"}, None
+                    await tool.function_schema.call(
+                        {"set_name": "Support KB", "query": "reset"}, _test_run_context()
                     )
                 assert exc_info.value.error_code == "invalid_response"
                 assert exc_info.value.retryable is False
@@ -536,8 +543,8 @@ def test_knowledge_layer_sends_execution_context_and_static_config_to_inner_api(
             ) as run:
                 knowledge_layer = run.get_layer("knowledge", DifyKnowledgeBaseLayer)
                 tool = (await knowledge_layer.get_tools(http_client=http_client))[0]
-                result = await tool.function_schema.call(  # pyright: ignore[reportArgumentType]
-                    {"set_name": "Support KB", "query": "reset"}, None
+                result = await tool.function_schema.call(
+                    {"set_name": "Support KB", "query": "reset"}, _test_run_context()
                 )
                 assert result == NO_RESULTS_OBSERVATION
 

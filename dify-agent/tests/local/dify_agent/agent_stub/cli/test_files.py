@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import json
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -12,6 +13,7 @@ from dify_agent.agent_stub.cli._files import (
     upload_tool_file_resource_from_environment,
 )
 from dify_agent.agent_stub.client._errors import AgentStubTransferError, AgentStubValidationError
+from dify_agent.agent_stub.protocol.agent_stub import AgentStubFileMapping
 
 
 def _reference(record_id: str) -> str:
@@ -219,8 +221,9 @@ def test_download_file_from_environment_supports_mapping_json(
         mapping=json.dumps({"transfer_method": "tool_file", "reference": _reference("tool-file-1")}),
         local_dir=str(target_dir),
     )
+    file_mapping = cast(AgentStubFileMapping, captured["file"])
 
-    assert captured["file"].model_dump() == {
+    assert file_mapping.model_dump() == {
         "transfer_method": "tool_file",
         "reference": _reference("tool-file-1"),
         "url": None,
