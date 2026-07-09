@@ -16,7 +16,7 @@ import time
 from collections.abc import Awaitable
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Protocol, TypeVar
+from typing import TYPE_CHECKING, Protocol, TypeVar, cast
 
 import httpx
 
@@ -31,6 +31,9 @@ from dify_agent.adapters.shell.protocols import (
 )
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from shell_session_manager.shellctl.shared import TerminalSize
 
 ResultT = TypeVar("ResultT")
 
@@ -75,7 +78,8 @@ class ShellctlClientProtocol(Protocol):
         cwd: str | None = None,
         env: dict[str, str] | None = None,
         timeout: float = _DEFAULT_TIMEOUT_SECONDS,
-    ) -> ShellctlJobResult: ...
+        terminal: "TerminalSize | None" = None,
+    ) -> object: ...
 
     async def wait(
         self,
@@ -83,7 +87,7 @@ class ShellctlClientProtocol(Protocol):
         *,
         offset: int,
         timeout: float = _DEFAULT_TIMEOUT_SECONDS,
-    ) -> ShellctlJobResult: ...
+    ) -> object: ...
 
     async def input(
         self,
@@ -92,15 +96,15 @@ class ShellctlClientProtocol(Protocol):
         *,
         offset: int,
         timeout: float = _DEFAULT_TIMEOUT_SECONDS,
-    ) -> ShellctlJobResult: ...
+    ) -> object: ...
 
-    async def tail(self, job_id: str) -> ShellctlJobResult: ...
+    async def tail(self, job_id: str) -> object: ...
 
     async def terminate(
         self,
         job_id: str,
         grace_seconds: float = _DEFAULT_TERMINATE_GRACE_SECONDS,
-    ) -> ShellctlJobStatus: ...
+    ) -> object: ...
 
     async def delete(
         self,
@@ -128,7 +132,8 @@ class ShellctlCommands(ShellCommandProtocol):
         env: dict[str, str] | None = None,
         timeout: float,
     ) -> ShellCommandResult:
-        return _from_job_result(await _run_client_call(self.client.run(script, cwd=cwd, env=env, timeout=timeout)))
+        result = await _run_client_call(self.client.run(script, cwd=cwd, env=env, timeout=timeout))
+        return _from_job_result(cast(ShellctlJobResult, result))
 
     async def wait(
         self,
@@ -137,7 +142,8 @@ class ShellctlCommands(ShellCommandProtocol):
         offset: int,
         timeout: float,
     ) -> ShellCommandResult:
-        return _from_job_result(await _run_client_call(self.client.wait(job_id, offset=offset, timeout=timeout)))
+        result = await _run_client_call(self.client.wait(job_id, offset=offset, timeout=timeout))
+        return _from_job_result(cast(ShellctlJobResult, result))
 
     async def read_output(
         self,
@@ -145,9 +151,8 @@ class ShellctlCommands(ShellCommandProtocol):
         *,
         offset: int,
     ) -> ShellCommandResult:
-        return _from_job_result(
-            await _run_client_call(self.client.wait(job_id, offset=offset, timeout=_READ_OUTPUT_TIMEOUT_SECONDS))
-        )
+        result = await _run_client_call(self.client.wait(job_id, offset=offset, timeout=_READ_OUTPUT_TIMEOUT_SECONDS))
+        return _from_job_result(cast(ShellctlJobResult, result))
 
     async def input(
         self,
@@ -157,7 +162,8 @@ class ShellctlCommands(ShellCommandProtocol):
         offset: int,
         timeout: float,
     ) -> ShellCommandResult:
-        return _from_job_result(await _run_client_call(self.client.input(job_id, text, offset=offset, timeout=timeout)))
+        result = await _run_client_call(self.client.input(job_id, text, offset=offset, timeout=timeout))
+        return _from_job_result(cast(ShellctlJobResult, result))
 
     async def interrupt(
         self,
@@ -165,10 +171,12 @@ class ShellctlCommands(ShellCommandProtocol):
         *,
         grace_seconds: float,
     ) -> ShellCommandStatus:
-        return _from_job_status(await _run_client_call(self.client.terminate(job_id, grace_seconds=grace_seconds)))
+        result = await _run_client_call(self.client.terminate(job_id, grace_seconds=grace_seconds))
+        return _from_job_status(cast(ShellctlJobStatus, result))
 
     async def tail(self, job_id: str) -> ShellCommandResult:
-        return _from_job_result(await _run_client_call(self.client.tail(job_id)))
+        result = await _run_client_call(self.client.tail(job_id))
+        return _from_job_result(cast(ShellctlJobResult, result))
 
     async def delete(
         self,
@@ -342,12 +350,16 @@ async def _run_to_completion(
     deadline = time.monotonic() + timeout
     job_id: str | None = None
     try:
-        result = await _run_client_call(client.run(script, cwd=cwd, env=None, timeout=_remaining_timeout(deadline)))
+        result = cast(
+            ShellctlJobResult,
+            await _run_client_call(client.run(script, cwd=cwd, env=None, timeout=_remaining_timeout(deadline))),
+        )
         parts = [result.output]
         job_id = result.job_id
         while not result.done or result.truncated:
-            result = await _run_client_call(
-                client.wait(job_id, offset=result.offset, timeout=_remaining_timeout(deadline))
+            result = cast(
+                ShellctlJobResult,
+                await _run_client_call(client.wait(job_id, offset=result.offset, timeout=_remaining_timeout(deadline))),
             )
             parts.append(result.output)
         return _CompletedShellctlJob(job_id=job_id, exit_code=result.exit_code, output="".join(parts))

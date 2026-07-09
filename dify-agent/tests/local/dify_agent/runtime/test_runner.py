@@ -72,7 +72,7 @@ class StaticToolsTestLayer(ToolsLayer):
 
 
 class FakeRunnerShellctlClient:
-    run_calls: list[tuple[str, str | None, Mapping[str, str] | None, float]]
+    run_calls: list[tuple[str, str | None, dict[str, str] | None, float]]
     delete_calls: list[tuple[str, bool, float | None]]
     closed: bool
 
@@ -86,9 +86,11 @@ class FakeRunnerShellctlClient:
         script: str,
         *,
         cwd: str | None = None,
-        env: Mapping[str, str] | None = None,
+        env: dict[str, str] | None = None,
         timeout: float = 10.0,
+        terminal: object | None = None,
     ) -> JobResult:
+        del terminal
         self.run_calls.append((script, cwd, env, timeout))
         return JobResult(
             job_id="mkdir-job",
@@ -111,6 +113,10 @@ class FakeRunnerShellctlClient:
     async def input(self, job_id: str, text: str, *, offset: int, timeout: float = 10.0) -> JobResult:
         del job_id, text, offset, timeout
         raise AssertionError("input() should not be called in this test")
+
+    async def tail(self, job_id: str) -> JobResult:
+        del job_id
+        raise AssertionError("tail() should not be called in this test")
 
     async def terminate(self, job_id: str, grace_seconds: float = 2.0) -> JobStatusView:
         del job_id, grace_seconds

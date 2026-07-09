@@ -25,6 +25,7 @@ from dify_agent.adapters.shell.protocols import (
     ShellResourceProtocol,
 )
 from dify_agent.layers.execution_context import DifyExecutionContextLayerConfig
+from dify_agent.layers.execution_context.layer import DifyExecutionContextLayer
 
 
 def _command_result(
@@ -206,7 +207,7 @@ class FakeCommands:
 
 
 @dataclass(slots=True)
-class FakeResource(ShellResourceProtocol):
+class FakeResource:
     commands: FakeCommands
     files: FakeFiles = field(default_factory=FakeFiles)
     closed: bool = False
@@ -222,7 +223,7 @@ class FakeProvider(ShellProviderProtocol):
 
     async def create(self) -> ShellResourceProtocol:
         self.create_calls += 1
-        return self.resource
+        return cast(ShellResourceProtocol, cast(object, self.resource))
 
 
 def _layer(
@@ -239,8 +240,10 @@ class _ExecutionContextStub:
 
 
 def _bind_execution_context(layer: DifyShellLayer, *, agent_id: str | None = "agent-1") -> None:
+    context_stub = _ExecutionContextStub(config=_execution_context_config(agent_id=agent_id))
     layer.deps.execution_context = cast(
-        object, _ExecutionContextStub(config=_execution_context_config(agent_id=agent_id))
+        DifyExecutionContextLayer,
+        cast(object, context_stub),
     )
 
 
@@ -303,8 +306,8 @@ def test_shell_layer_create_allocates_workspace_and_bootstraps(monkeypatch: pyte
 
     layer, provider = _layer(
         commands=FakeCommands(run_handler=run_handler),
-        config=DifyShellLayerConfig(
-            cli_tools=[{"name": "ripgrep", "install_commands": ["apt-get install -y ripgrep"]}],
+        config=DifyShellLayerConfig.model_validate(
+            {"cli_tools": [{"name": "ripgrep", "install_commands": ["apt-get install -y ripgrep"]}]}
         ),
     )
     _bind_execution_context(layer)

@@ -15,7 +15,7 @@ import os
 from dataclasses import dataclass
 
 from pydantic_ai import Agent, RunContext
-from pydantic_ai.messages import BuiltinToolCallPart, ModelMessage, ToolCallPart
+from pydantic_ai.messages import ModelMessage
 from pydantic_ai.models.openai import OpenAIChatModel  # pyright: ignore[reportDeprecated]
 from pydantic_ai.models.test import TestModel
 
@@ -121,11 +121,12 @@ def _format_messages(messages: list[ModelMessage]) -> list[str]:
     lines: list[str] = []
     for message in messages:
         for part in message.parts:
-            if isinstance(part, ToolCallPart | BuiltinToolCallPart):
-                args = json.dumps(part.args, ensure_ascii=False)
-                lines.append(f"{type(part).__name__}: {part.tool_name}({args})")
+            tool_name = getattr(part, "tool_name", None)
+            if isinstance(tool_name, str):
+                args = json.dumps(getattr(part, "args", {}), ensure_ascii=False)
+                lines.append(f"{type(part).__name__}: {tool_name}({args})")
             else:
-                lines.append(f"{type(part).__name__}: {part.content}")
+                lines.append(f"{type(part).__name__}: {getattr(part, 'content', '')}")
     return lines
 
 

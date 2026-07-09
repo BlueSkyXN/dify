@@ -1,3 +1,4 @@
+# pyright: reportAttributeAccessIssue=false
 import sys
 import types
 from typing import cast
@@ -110,7 +111,7 @@ def test_default_layer_providers_register_shell_layer_with_configured_token_fact
 
     def fake_create_shell_provider(settings: ShellAdapterSettings) -> ShellProviderProtocol:
         captured_settings.append(settings)
-        return cast(ShellProviderProtocol, fake_provider)
+        return cast(ShellProviderProtocol, cast(object, fake_provider))
 
     monkeypatch.setattr("dify_agent.adapters.shell.factory.create_shell_provider", fake_create_shell_provider)
 
@@ -135,7 +136,7 @@ def test_default_layer_providers_keep_empty_shellctl_token_by_default(
 
     def fake_create_shell_provider(settings: ShellAdapterSettings) -> ShellProviderProtocol:
         captured_settings.append(settings)
-        return cast(ShellProviderProtocol, FakeProvider())
+        return cast(ShellProviderProtocol, cast(object, FakeProvider()))
 
     monkeypatch.setattr("dify_agent.adapters.shell.factory.create_shell_provider", fake_create_shell_provider)
 

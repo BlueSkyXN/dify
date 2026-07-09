@@ -45,6 +45,7 @@ extraPaths = ["src", "examples/agenton", "examples/dify_agent"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
+addopts = ["--import-mode=importlib"]
 
 [tool.ruff]
 line-length = 120

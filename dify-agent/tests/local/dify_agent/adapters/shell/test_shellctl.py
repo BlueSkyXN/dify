@@ -66,40 +66,49 @@ class FakeShellctlClient:
     delete_calls: list[tuple[str, bool, float | None]] = field(default_factory=list)
     closed: bool = False
 
-    async def run(self, script, *, cwd=None, env=None, timeout=30.0):
+    async def run(
+        self,
+        script: str,
+        *,
+        cwd: str | None = None,
+        env: dict[str, str] | None = None,
+        timeout: float = 30.0,
+        terminal: object | None = None,
+    ) -> _Job:
+        del terminal
         self.run_calls.append(_RunCall(script=script, cwd=cwd, env=env, timeout=timeout))
         if self.run_handler is not None:
             return self.run_handler(script, cwd, env, timeout)
         return _Job(job_id="job", status="exited", done=True, exit_code=0)
 
-    async def wait(self, job_id, *, offset, timeout=30.0):
+    async def wait(self, job_id: str, *, offset: int, timeout: float = 30.0) -> _Job:
         self.wait_calls.append((job_id, offset, timeout))
         if self.wait_handler is not None:
             return self.wait_handler(job_id, offset, timeout)
         return _Job(job_id=job_id, status="exited", done=True, offset=offset, exit_code=0)
 
-    async def input(self, job_id, text, *, offset, timeout=30.0):
+    async def input(self, job_id: str, text: str, *, offset: int, timeout: float = 30.0) -> _Job:
         self.input_calls.append((job_id, text, offset, timeout))
         if self.input_handler is not None:
             return self.input_handler(job_id, text, offset, timeout)
         return _Job(job_id=job_id, status="exited", done=True, offset=offset, exit_code=0)
 
-    async def tail(self, job_id):
+    async def tail(self, job_id: str) -> _Job:
         if self.tail_handler is not None:
             return self.tail_handler(job_id)
         return _Job(job_id=job_id, status="exited", done=True, output="", exit_code=0)
 
-    async def terminate(self, job_id, grace_seconds=10.0):
+    async def terminate(self, job_id: str, grace_seconds: float = 10.0) -> _Status:
         self.terminate_calls.append((job_id, grace_seconds))
         if self.terminate_handler is not None:
             return self.terminate_handler(job_id, grace_seconds)
         return _Status(job_id=job_id)
 
-    async def delete(self, job_id, *, force=False, grace_seconds=None):
+    async def delete(self, job_id: str, *, force: bool = False, grace_seconds: float | None = None) -> None:
         self.delete_calls.append((job_id, force, grace_seconds))
         return None
 
-    async def close(self):
+    async def close(self) -> None:
         self.closed = True
 
 

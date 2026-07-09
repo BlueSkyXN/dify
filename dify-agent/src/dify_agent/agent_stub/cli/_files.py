@@ -207,7 +207,7 @@ def _request_uploaded_tool_file_download_url(*, url: str, auth_jwe: str, referen
             file=AgentStubFileMapping(transfer_method="tool_file", reference=reference),
         ),
     )
-    download_url = download_request.download_url
+    download_url = getattr(download_request, "download_url", None)
     if not isinstance(download_url, str) or not download_url:
         raise AgentStubTransferError("signed file download response is missing download_url")
     return download_url
