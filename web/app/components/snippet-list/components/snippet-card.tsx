@@ -19,11 +19,12 @@ import {
   DropdownMenuTrigger,
 } from '@langgenius/dify-ui/dropdown-menu'
 import { toast } from '@langgenius/dify-ui/toast'
+import { useAtomValue } from 'jotai'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import CreateSnippetDialog from '@/app/components/snippets/create-snippet-dialog'
 import { canCreateAndModifySnippets, canManageSnippets } from '@/app/components/snippets/utils/permission'
-import { useSelector as useAppContextWithSelector } from '@/context/app-context'
+import { workspacePermissionKeysAtom } from '@/context/app-context-state'
 import { TagSelector } from '@/features/tag-management/components/tag-selector'
 import Link from '@/next/link'
 import { useMembers } from '@/service/use-common'
@@ -46,7 +47,7 @@ const SnippetCard = ({
 }: Props) => {
   const { t } = useTranslation('snippet')
   const { t: tCommon } = useTranslation()
-  const workspacePermissionKeys = useAppContextWithSelector(state => state.workspacePermissionKeys)
+  const workspacePermissionKeys = useAtomValue(workspacePermissionKeysAtom)
   const { data: membersData } = useMembers()
   const [isOperationsMenuOpen, setIsOperationsMenuOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -62,8 +63,8 @@ const SnippetCard = ({
     return new Map((membersData?.accounts ?? []).map(member => [member.id, member.name]))
   }, [membersData?.accounts])
 
-  const updatedByName = memberNameById.get(snippet.updated_by)
-    || memberNameById.get(snippet.created_by)
+  const updatedByName = (snippet.updated_by ? memberNameById.get(snippet.updated_by) : undefined)
+    || (snippet.created_by ? memberNameById.get(snippet.created_by) : undefined)
     || t('unknownUser')
 
   const updatedAt = snippet.updated_at || snippet.created_at
@@ -73,7 +74,7 @@ const SnippetCard = ({
   })
   const initialValue = useMemo(() => ({
     name: snippet.name,
-    description: snippet.description,
+    description: snippet.description ?? undefined,
   }), [snippet.description, snippet.name])
 
   const handleOpenEditDialog = () => {
@@ -82,7 +83,7 @@ const SnippetCard = ({
   }
 
   const handleExportSnippet = async () => {
-    if (!canManageSnippet)
+    if (!canCreateAndModifySnippet)
       return
 
     setIsOperationsMenuOpen(false)
@@ -119,7 +120,7 @@ const SnippetCard = ({
       params: { snippetId: snippet.id },
       body: {
         name,
-        description: description || undefined,
+        description,
       },
     }, {
       onSuccess: () => {
@@ -148,20 +149,14 @@ const SnippetCard = ({
             </div>
           </div>
           <div className="h-22.5 px-3.5 text-xs leading-normal text-text-tertiary">
-            <div className="line-clamp-2" title={snippet.description}>
+            <div className="line-clamp-2" title={snippet.description ?? undefined}>
               {snippet.description}
             </div>
           </div>
         </Link>
 
         <div className="absolute right-0 bottom-1 left-0 flex h-10.5 shrink-0 items-center pt-1 pr-1.5 pb-1.5 pl-3.5">
-          <div
-            className="flex w-0 grow items-center gap-1"
-            onClick={(e) => {
-              e.stopPropagation()
-              e.preventDefault()
-            }}
-          >
+          <div className="flex w-0 grow items-center gap-1">
             <div className="mr-10.25 min-w-0 grow overflow-hidden">
               <TagSelector
                 placement="bottom-start"
@@ -187,7 +182,7 @@ const SnippetCard = ({
               <DropdownMenu modal={false} open={isOperationsMenuOpen} onOpenChange={setIsOperationsMenuOpen}>
                 <DropdownMenuTrigger
                   aria-label={tCommon('operation.more', { ns: 'common' })}
-                  className="flex size-8 items-center justify-center rounded-md border-none bg-transparent p-2 hover:bg-state-base-hover focus-visible:bg-state-base-hover focus-visible:ring-1 focus-visible:ring-components-input-border-active focus-visible:ring-inset data-popup-open:bg-state-base-hover data-popup-open:shadow-none"
+                  className="flex size-8 items-center justify-center rounded-md border-none bg-transparent p-2 hover:bg-state-base-hover focus-visible:bg-state-base-hover focus-visible:inset-ring-1 focus-visible:inset-ring-components-input-border-active data-popup-open:bg-state-base-hover data-popup-open:shadow-none"
                   onClick={(e) => {
                     e.stopPropagation()
                     e.preventDefault()
@@ -204,16 +199,18 @@ const SnippetCard = ({
                   popupClassName="w-[216px]"
                 >
                   {canCreateAndModifySnippet && (
-                    <DropdownMenuItem className="gap-2 px-3" onClick={handleOpenEditDialog}>
-                      <span className="system-sm-regular text-text-secondary">{t('menu.editInfo')}</span>
-                    </DropdownMenuItem>
-                  )}
-                  {canManageSnippet && (
                     <>
+                      <DropdownMenuItem className="gap-2 px-3" onClick={handleOpenEditDialog}>
+                        <span className="system-sm-regular text-text-secondary">{t('menu.editInfo')}</span>
+                      </DropdownMenuItem>
                       <DropdownMenuItem className="gap-2 px-3" onClick={handleExportSnippet}>
                         <span className="system-sm-regular text-text-secondary">{t('menu.exportSnippet')}</span>
                       </DropdownMenuItem>
-                      <DropdownMenuSeparator />
+                    </>
+                  )}
+                  {canManageSnippet && (
+                    <>
+                      {canCreateAndModifySnippet && <DropdownMenuSeparator />}
                       <DropdownMenuItem
                         variant="destructive"
                         className="gap-2 px-3"
