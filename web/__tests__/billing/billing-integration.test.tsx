@@ -32,9 +32,15 @@ vi.mock('@/context/provider-context', () => ({
   useProviderContext: () => mockProviderCtx,
 }))
 
-vi.mock('@/context/app-context', () => ({
-  useAppContext: () => mockAppCtx,
-}))
+vi.mock('@/context/app-context-state', async (importOriginal) => {
+  const { createAppContextStateAtomMock } = await import('@/__tests__/utils/mock-app-context-state')
+  return createAppContextStateAtomMock(importOriginal, () => mockAppCtx)
+})
+
+vi.mock('jotai', async (importOriginal) => {
+  const { createAppContextStateJotaiMock } = await import('@/__tests__/utils/mock-app-context-state')
+  return createAppContextStateJotaiMock(importOriginal)
+})
 
 vi.mock('@/context/modal-context', () => ({
   useModalContext: () => ({
@@ -232,7 +238,20 @@ describe('Billing Page + Plan Integration', () => {
 
   // Verify billing URL button visibility and behavior
   describe('Billing URL button', () => {
-    it('should show billing button when subscription management permission is granted', () => {
+    it('should show billing button when manager has subscription management permission', () => {
+      setupProviderContext({ type: Plan.sandbox })
+      setupAppContext({
+        isCurrentWorkspaceManager: true,
+        workspacePermissionKeys: ['billing.subscription.manage'],
+      })
+
+      render(<Billing />)
+
+      expect(screen.getByText(/viewBillingTitle/i)).toBeInTheDocument()
+      expect(screen.getByText(/viewBillingAction/i)).toBeInTheDocument()
+    })
+
+    it('should hide billing button when subscription management permission is granted without manager role', () => {
       setupProviderContext({ type: Plan.sandbox })
       setupAppContext({
         isCurrentWorkspaceManager: false,
@@ -241,8 +260,7 @@ describe('Billing Page + Plan Integration', () => {
 
       render(<Billing />)
 
-      expect(screen.getByText(/viewBillingTitle/i)).toBeInTheDocument()
-      expect(screen.getByText(/viewBillingAction/i)).toBeInTheDocument()
+      expect(screen.queryByText(/viewBillingTitle/i)).not.toBeInTheDocument()
     })
 
     it('should hide billing button when subscription management permission is missing', () => {
