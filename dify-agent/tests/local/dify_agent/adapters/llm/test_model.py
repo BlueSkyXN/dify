@@ -559,7 +559,7 @@ class DifyLLMAdapterModelTests(unittest.IsolatedAsyncioTestCase):
                             content="",
                             tool_calls=[
                                 AssistantPromptMessage.ToolCall(
-                                    id=None,
+                                    id=None,  # pyright: ignore[reportArgumentType]
                                     type="function",
                                     function=AssistantPromptMessage.ToolCall.ToolCallFunction(
                                         name="shell_run",
@@ -578,7 +578,7 @@ class DifyLLMAdapterModelTests(unittest.IsolatedAsyncioTestCase):
                             content="",
                             tool_calls=[
                                 AssistantPromptMessage.ToolCall(
-                                    id=None,
+                                    id=None,  # pyright: ignore[reportArgumentType]
                                     type="function",
                                     function=AssistantPromptMessage.ToolCall.ToolCallFunction(
                                         name="shell_run",

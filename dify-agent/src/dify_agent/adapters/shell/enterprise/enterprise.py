@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import TypedDict
+from typing import TypedDict, cast
 
 import httpx2 as httpx
 
@@ -67,9 +67,15 @@ class EnterpriseGatewayClient:
     async def close(self) -> None:
         await self._client.aclose()
 
-    async def _request(self, method: str, path: str, **kwargs: object) -> httpx.Response:
+    async def _request(
+        self,
+        method: str,
+        path: str,
+        *,
+        json: dict[str, str] | None = None,
+    ) -> httpx.Response:
         try:
-            response = await self._client.request(method, path, **kwargs)
+            response = await self._client.request(method, path, json=json)
             response.raise_for_status()
             return response
         except httpx.TimeoutException as exc:
@@ -101,8 +107,16 @@ class EnterpriseResource(ShellResourceProtocol):
     _sandbox_id: str
     gateway: EnterpriseGatewayClient
     shellctl_client: ShellctlClientProtocol
-    commands: ShellCommandProtocol
-    files: ShellFileTransferProtocol
+    _commands: ShellCommandProtocol
+    _files: ShellFileTransferProtocol
+
+    @property
+    def commands(self) -> ShellCommandProtocol:
+        return self._commands
+
+    @property
+    def files(self) -> ShellFileTransferProtocol:
+        return self._files
 
     @property
     def sandbox_id(self) -> str | None:
@@ -213,18 +227,24 @@ class EnterpriseShellProvider(ShellProviderProtocol):
 
         from shellctl.client import ShellctlClient
 
-        client: ShellctlClientProtocol = ShellctlClient(
-            proxy_base_url,
-            token=self.auth_token,
-            client=proxy_http_client,
+        client = cast(
+            ShellctlClientProtocol,
+            cast(
+                object,
+                ShellctlClient(
+                    proxy_base_url,
+                    token=self.auth_token,
+                    client=proxy_http_client,
+                ),
+            ),
         )
 
         return EnterpriseResource(
             _sandbox_id=sandbox_id,
             gateway=gateway,
             shellctl_client=client,
-            commands=ShellctlCommands(client=client),
-            files=ShellctlFileTransfer(client=client),
+            _commands=ShellctlCommands(client=client),
+            _files=ShellctlFileTransfer(client=client),
         )
 
 

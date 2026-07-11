@@ -31,6 +31,7 @@ SERVER_RUNTIME_DEPENDENCIES = {
 SHELLCTL_SERVER_DEPENDENCIES = {
     "aiosqlite>=0.21.0,<1.0.0",
     "fastapi==0.136.0",
+    "greenlet>=3.5.1,<4.0.0",
     "sqlmodel>=0.0.24,<0.1.0",
     "uvicorn[standard]==0.46.0",
 }

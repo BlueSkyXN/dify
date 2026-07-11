@@ -29,7 +29,7 @@ from agenton_collections.layers.plain import PromptLayerConfig, ToolsLayer
 from dify_agent.layers.ask_human import DIFY_ASK_HUMAN_LAYER_TYPE_ID, DifyAskHumanLayerConfig
 from dify_agent.layers.execution_context import DIFY_EXECUTION_CONTEXT_LAYER_TYPE_ID, DifyExecutionContextLayerConfig
 from dify_agent.layers.shell import DIFY_SHELL_LAYER_TYPE_ID, DifyShellLayerConfig
-from dify_agent.adapters.shell.shellctl import ShellctlProvider
+from dify_agent.adapters.shell.shellctl import ShellctlClientProtocol, ShellctlProvider
 from dify_agent.layers.shell.layer import DifyShellLayer
 from dify_agent.layers.dify_plugin.configs import (
     DIFY_PLUGIN_TOOLS_LAYER_TYPE_ID,
@@ -1573,7 +1573,7 @@ def test_runner_rejects_duplicate_tool_names_between_shell_and_other_layers(
             shell_provider=ShellctlProvider(
                 entrypoint="http://shellctl",
                 token="",
-                client_factory=lambda: shell_client,
+                client_factory=lambda: cast(ShellctlClientProtocol, cast(object, shell_client)),
             ),
         ),
     )

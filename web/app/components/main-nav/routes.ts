@@ -14,10 +14,7 @@ export type MainNavRouteConfig = {
   activeIcon: string
   visibility: MainNavRouteVisibility
   feature?: 'agentV2' | 'marketplace'
-} & (
-  | { label: string, labelKey?: never }
-  | { label?: never, labelKey: string }
-)
+}
 
 export type MainNavRouteVisibilityOptions = {
   agentV2Enabled: boolean
@@ -39,7 +36,6 @@ export const MAIN_NAV_ROUTES = [
   {
     key: 'home',
     href: '/',
-    labelKey: 'mainNav.home',
     active: (path: string) => path === '/' || path === '/explore/apps',
     icon: 'i-custom-vender-main-nav-home',
     activeIcon: 'i-custom-vender-main-nav-home-active',
@@ -48,7 +44,6 @@ export const MAIN_NAV_ROUTES = [
   {
     key: 'apps',
     href: '/apps',
-    labelKey: 'menus.apps',
     active: (path: string) => isPathUnderRoute(path, '/apps') || isPathUnderRoute(path, '/app') || isPathUnderRoute(path, '/snippets'),
     icon: 'i-custom-vender-main-nav-studio',
     activeIcon: 'i-custom-vender-main-nav-studio-active',
@@ -57,7 +52,6 @@ export const MAIN_NAV_ROUTES = [
   {
     key: 'roster',
     href: '/agents',
-    label: 'Agents',
     active: (path: string) => isPathUnderRoute(path, '/agents'),
     icon: 'i-custom-vender-main-nav-roster',
     activeIcon: 'i-custom-vender-main-nav-roster-active',
@@ -67,7 +61,6 @@ export const MAIN_NAV_ROUTES = [
   {
     key: 'datasets',
     href: '/datasets',
-    labelKey: 'menus.datasets',
     active: (path: string) => isPathUnderRoute(path, '/datasets'),
     icon: 'i-custom-vender-main-nav-knowledge',
     activeIcon: 'i-custom-vender-main-nav-knowledge-active',
@@ -76,7 +69,6 @@ export const MAIN_NAV_ROUTES = [
   {
     key: 'integrations',
     href: buildIntegrationPath('provider'),
-    labelKey: 'mainNav.integrations',
     active: (path: string) => isPathUnderRoute(path, '/integrations') || isPathUnderRoute(path, '/tools'),
     icon: 'i-custom-vender-main-nav-integrations',
     activeIcon: 'i-custom-vender-main-nav-integrations-active',
@@ -85,7 +77,6 @@ export const MAIN_NAV_ROUTES = [
   {
     key: 'marketplace',
     href: '/marketplace',
-    labelKey: 'mainNav.marketplace',
     active: (path: string) => isPathUnderRoute(path, '/marketplace') || isPathUnderRoute(path, '/plugins'),
     icon: 'i-custom-vender-main-nav-marketplace',
     activeIcon: 'i-custom-vender-main-nav-marketplace-active',
@@ -95,7 +86,6 @@ export const MAIN_NAV_ROUTES = [
   {
     key: 'deployments',
     href: '/deployments',
-    labelKey: 'menus.deployments',
     active: (path: string) => isPathUnderRoute(path, '/deployments'),
     icon: 'i-ri-rocket-line',
     activeIcon: 'i-ri-rocket-fill',

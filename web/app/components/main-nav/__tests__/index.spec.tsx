@@ -340,8 +340,8 @@ describe('MainNav', () => {
     expect(screen.getByRole('button', { name: 'common.account.account' })).not.toHaveTextContent(Plan.team)
     expect(screen.getByRole('link', { name: /common.mainNav.home/ })).toHaveAttribute('href', '/')
     expect(screen.getByRole('link', { name: /common.menus.apps/ })).toHaveAttribute('href', '/apps')
-    expect(screen.getByRole('link', { name: /Agents/ })).toHaveAttribute('href', '/agents')
-    expect(screen.getByRole('link', { name: /Agents common.menus.status/ })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /agentV2\.roster\.listLabel/ })).toHaveAttribute('href', '/agents')
+    expect(screen.getByRole('link', { name: /agentV2\.roster\.listLabel common\.menus\.status/ })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /common.menus.datasets/ })).toHaveAttribute('href', '/datasets')
     expect(screen.getByRole('link', { name: /common.mainNav.integrations/ })).toHaveAttribute('href', '/integrations/model-provider')
     expect(screen.getByRole('link', { name: /common.mainNav.marketplace/ })).toHaveAttribute('href', '/marketplace')
@@ -352,7 +352,7 @@ describe('MainNav', () => {
 
     renderMainNav()
 
-    expect(screen.queryByRole('link', { name: /Agents/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /agentV2\.roster\.listLabel/ })).not.toBeInTheDocument()
   })
 
   it('hides the marketplace entry when marketplace is disabled', () => {
@@ -475,7 +475,7 @@ describe('MainNav', () => {
 
     expect(screen.getByRole('link', { name: /common.mainNav.home/ })).toHaveAttribute('href', '/')
     expect(screen.getByRole('link', { name: /common.menus.apps/ })).toHaveAttribute('href', '/apps')
-    expect(screen.queryByRole('link', { name: /Agents/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /agentV2\.roster\.listLabel/ })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: /common.menus.datasets/ })).toHaveAttribute('href', '/datasets')
     expect(screen.getByRole('link', { name: /common.mainNav.integrations/ })).toHaveAttribute('href', '/integrations/model-provider')
     expect(screen.getByRole('link', { name: /common.mainNav.marketplace/ })).toHaveAttribute('href', '/marketplace')
@@ -501,7 +501,7 @@ describe('MainNav', () => {
 
     expect(screen.getByRole('link', { name: /common.mainNav.home/ })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /common.menus.apps/ })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Agents/ })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /agentV2\.roster\.listLabel/ })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /common.menus.datasets/ })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /common.mainNav.integrations/ })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /common.menus.deployments/ })).not.toBeInTheDocument()
@@ -538,7 +538,7 @@ describe('MainNav', () => {
 
     expect(screen.queryByTestId('agent-detail-top')).not.toBeInTheDocument()
     expect(screen.queryByTestId('agent-detail-section')).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /Agents/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /agentV2\.roster\.listLabel/ })).not.toBeInTheDocument()
   })
 
   it.each([
@@ -586,7 +586,7 @@ describe('MainNav', () => {
 
     renderMainNav()
 
-    const rosterLink = screen.getByRole('link', { name: /Agents/ })
+    const rosterLink = screen.getByRole('link', { name: /agentV2\.roster\.listLabel/ })
     expect(rosterLink).toHaveClass(activeGradientMaskClassName)
     expect(rosterLink).toHaveAttribute('aria-current', 'page')
   })
