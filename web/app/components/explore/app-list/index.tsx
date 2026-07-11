@@ -18,8 +18,8 @@ import DSLConfirmModal from '@/app/components/app/create-from-dsl-modal/dsl-conf
 import AppCard from '@/app/components/explore/app-card'
 import Banner from '@/app/components/explore/banner/banner'
 import CreateAppModal from '@/app/components/explore/create-app-modal'
-import { workspacePermissionKeysAtom } from '@/context/app-context-state'
 import { useLocale } from '@/context/i18n'
+import { workspacePermissionKeysAtom } from '@/context/permission-state'
 import { systemFeaturesQueryOptions } from '@/features/system-features/client'
 import { useImportDSL } from '@/hooks/use-import-dsl'
 import { DSLImportMode } from '@/models/app'
@@ -122,7 +122,7 @@ const Apps = ({ onSuccess }: { onSuccess?: () => void }) => {
       isAppListError: exploreAppListQuery.isError || (!exploreAppListQuery.isPending && !exploreAppListQuery.data),
     }),
   })
-  const allCategoriesEn = t('apps.allCategories', { ns: 'explore', lng: 'en' })
+  const allCategoriesEn = t($ => $['apps.allCategories'], { ns: 'explore', lng: 'en' })
   const canCreateApp = hasPermission(workspacePermissionKeys, 'app.create_and_management')
 
   const [keywords, setKeywords] = useState('')

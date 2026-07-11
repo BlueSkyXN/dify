@@ -9,11 +9,8 @@ import { useTranslation } from 'react-i18next'
 import Badge from '@/app/components/base/badge'
 import DifyLogo from '@/app/components/base/logo/dify-logo'
 import EnvNav from '@/app/components/header/env-nav'
-import {
-  isCurrentWorkspaceDatasetOperatorAtom,
-  isCurrentWorkspaceEditorAtom,
-  langGeniusVersionInfoAtom,
-} from '@/context/app-context-state'
+import { langGeniusVersionInfoAtom } from '@/context/version-state'
+import { isCurrentWorkspaceDatasetOperatorAtom, isCurrentWorkspaceEditorAtom } from '@/context/workspace-state'
 import { isAgentV2Enabled } from '@/features/agent-v2/feature-flag'
 import { systemFeaturesQueryOptions } from '@/features/system-features/client'
 import dynamic from '@/next/dynamic'
@@ -41,20 +38,32 @@ export function MainNav({
   const showEnvTag = langGeniusVersionInfo.current_env === 'TESTING' || langGeniusVersionInfo.current_env === 'DEVELOPMENT'
   const canUseAppDeploy = isCurrentWorkspaceEditor && systemFeatures.enable_app_deploy
 
-  const navItems = useMemo<MainNavItem[]>(() => MAIN_NAV_ROUTES
-    .filter(route => isMainNavRouteVisible(route, {
-      agentV2Enabled,
-      canUseAppDeploy,
-      isCurrentWorkspaceDatasetOperator,
-      marketplaceEnabled: systemFeatures.enable_marketplace,
-    }))
-    .map(route => ({
-      href: route.href,
-      label: t(route.labelKey, { ns: 'common' }),
-      active: route.active,
-      icon: route.icon,
-      activeIcon: route.activeIcon,
-    })), [agentV2Enabled, canUseAppDeploy, isCurrentWorkspaceDatasetOperator, systemFeatures.enable_marketplace, t])
+  const navItems = useMemo<MainNavItem[]>(() => {
+    const labels = {
+      home: t($ => $['mainNav.home'], { ns: 'common' }),
+      apps: t($ => $['menus.apps'], { ns: 'common' }),
+      roster: t($ => $['roster.listLabel'], { ns: 'agentV2' }),
+      datasets: t($ => $['menus.datasets'], { ns: 'common' }),
+      integrations: t($ => $['mainNav.integrations'], { ns: 'common' }),
+      marketplace: t($ => $['mainNav.marketplace'], { ns: 'common' }),
+      deployments: t($ => $['menus.deployments'], { ns: 'common' }),
+    } satisfies Record<(typeof MAIN_NAV_ROUTES)[number]['key'], string>
+
+    return MAIN_NAV_ROUTES
+      .filter(route => isMainNavRouteVisible(route, {
+        agentV2Enabled,
+        canUseAppDeploy,
+        isCurrentWorkspaceDatasetOperator,
+        marketplaceEnabled: systemFeatures.enable_marketplace,
+      }))
+      .map(route => ({
+        href: route.href,
+        label: labels[route.key],
+        active: route.active,
+        icon: route.icon,
+        activeIcon: route.activeIcon,
+      }))
+  }, [agentV2Enabled, canUseAppDeploy, isCurrentWorkspaceDatasetOperator, systemFeatures.enable_marketplace, t])
 
   const renderLogo = () => {
     const appTitle = systemFeatures.branding.enabled && systemFeatures.branding.application_title ? systemFeatures.branding.application_title : 'Dify'
@@ -96,11 +105,11 @@ export function MainNav({
         <nav className="isolate flex flex-col gap-px p-2">
           {navItems.map(item => (
             <MainNavLink key={item.href} item={item} pathname={pathname}>
-              {item.href === '/roster' && (
+              {item.href === '/agents' && (
                 <Badge
                   size="xs"
                   variant="dimm"
-                  text={t('menus.status', { ns: 'common' })}
+                  text={t($ => $['menus.status'], { ns: 'common' })}
                   className="ml-auto shrink-0"
                 />
               )}

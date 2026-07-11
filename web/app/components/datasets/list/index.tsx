@@ -6,11 +6,9 @@ import { useAtomValue } from 'jotai'
 // Libraries
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import {
-  isCurrentWorkspaceOwnerAtom,
-  workspacePermissionKeysAtom,
-} from '@/context/app-context-state'
 import { useExternalApiPanel } from '@/context/external-api-panel-context'
+import { workspacePermissionKeysAtom } from '@/context/permission-state'
+import { isCurrentWorkspaceOwnerAtom } from '@/context/workspace-state'
 import { TagManagementModal } from '@/features/tag-management/components/tag-management-modal'
 import useDocumentTitle from '@/hooks/use-document-title'
 import { useRouter } from '@/next/navigation'
@@ -31,7 +29,7 @@ const List = () => {
   const { showExternalApiPanel, setShowExternalApiPanel } = useExternalApiPanel()
   const [includeAll, { toggle: toggleIncludeAll }] = useBoolean(false)
   const invalidDatasetList = useInvalidDatasetList()
-  useDocumentTitle(t('knowledge', { ns: 'dataset' }))
+  useDocumentTitle(t($ => $.knowledge, { ns: 'dataset' }))
 
   const [keywords, setKeywords] = useState('')
   const [searchKeywords, setSearchKeywords] = useState('')
@@ -119,7 +117,7 @@ const List = () => {
               />
               <Datasets
                 datasetList={datasetListQuery.data}
-                emptyElement={showFilteredEmptyState ? <FilterEmptyState title={t('filterEmpty.noKnowledge', { ns: 'dataset' })} /> : undefined}
+                emptyElement={showFilteredEmptyState ? <FilterEmptyState title={t($ => $['filterEmpty.noKnowledge'], { ns: 'dataset' })} /> : undefined}
                 fetchNextPage={datasetListQuery.fetchNextPage}
                 hasNextPage={datasetListQuery.hasNextPage}
                 isFetching={datasetListQuery.isFetching}

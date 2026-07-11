@@ -6,7 +6,7 @@ import httpx
 import pytest
 from pydantic import JsonValue
 from pydantic_ai import Tool
-from pydantic_ai.exceptions import UnexpectedModelBehavior
+from pydantic_ai.exceptions import ModelHTTPError, UnexpectedModelBehavior
 from pydantic_ai.messages import (
     ToolReturnPart,
     ModelMessage,
@@ -29,7 +29,7 @@ from agenton_collections.layers.plain import PromptLayerConfig, ToolsLayer
 from dify_agent.layers.ask_human import DIFY_ASK_HUMAN_LAYER_TYPE_ID, DifyAskHumanLayerConfig
 from dify_agent.layers.execution_context import DIFY_EXECUTION_CONTEXT_LAYER_TYPE_ID, DifyExecutionContextLayerConfig
 from dify_agent.layers.shell import DIFY_SHELL_LAYER_TYPE_ID, DifyShellLayerConfig
-from dify_agent.adapters.shell.shellctl import ShellctlProvider
+from dify_agent.adapters.shell.shellctl import ShellctlClientProtocol, ShellctlProvider
 from dify_agent.layers.shell.layer import DifyShellLayer
 from dify_agent.layers.dify_plugin.configs import (
     DIFY_PLUGIN_TOOLS_LAYER_TYPE_ID,
@@ -48,6 +48,7 @@ from dify_agent.layers.dify_core_tools.configs import (
     DifyCoreToolsLayerConfig,
 )
 from dify_agent.layers.dify_core_tools.layer import DifyCoreToolsLayer
+from dify_agent.layers.knowledge.client import DifyKnowledgeBaseClientError
 from dify_agent.layers.knowledge.configs import DIFY_KNOWLEDGE_BASE_LAYER_TYPE_ID, DifyKnowledgeBaseLayerConfig
 from dify_agent.layers.knowledge.layer import DifyKnowledgeBaseLayer
 from dify_agent.layers.output import DIFY_OUTPUT_LAYER_TYPE_ID, DifyOutputLayerConfig
@@ -63,8 +64,8 @@ from dify_agent.protocol.schemas import (
 )
 from dify_agent.runtime.event_sink import InMemoryRunEventSink
 from dify_agent.runtime.compositor_factory import create_default_layer_providers
-from dify_agent.runtime.runner import AgentRunRunner, AgentRunValidationError
-from shell_session_manager.shellctl.shared import DeleteJobResponse, JobResult, JobStatusName, JobStatusView
+from dify_agent.runtime.runner import AgentRunRunner, AgentRunValidationError, _run_failed_error_payload
+from shellctl.shared import DeleteJobResponse, JobResult, JobStatusName, JobStatusView
 
 
 class StaticToolsTestLayer(ToolsLayer):
@@ -131,6 +132,42 @@ class FakeRunnerShellctlClient:
     ) -> DeleteJobResponse:
         self.delete_calls.append((job_id, force, grace_seconds))
         return DeleteJobResponse(job_id=job_id)
+
+
+def test_run_failed_error_payload_preserves_plugin_rate_limit_error() -> None:
+    exc = ModelHTTPError(
+        429,
+        "gpt-4o-mini",
+        {"error_type": "InvokeRateLimitError", "message": "quota exceeded"},
+    )
+
+    message, reason = _run_failed_error_payload(exc)
+
+    assert message == "quota exceeded"
+    assert reason == "InvokeRateLimitError"
+
+
+def test_run_failed_error_payload_infers_rate_limit_reason_from_status_code() -> None:
+    exc = ModelHTTPError(429, "gpt-4o-mini", {"message": "too many requests"})
+
+    message, reason = _run_failed_error_payload(exc)
+
+    assert message == "too many requests"
+    assert reason == "InvokeRateLimitError"
+
+
+def test_run_failed_error_payload_preserves_knowledge_error_code() -> None:
+    exc = DifyKnowledgeBaseClientError(
+        "Knowledge base search failed with HTTP 400 (dataset_not_found): Dataset not found",
+        status_code=400,
+        error_code="dataset_not_found",
+        retryable=False,
+    )
+
+    message, reason = _run_failed_error_payload(exc)
+
+    assert message == "Knowledge base search failed with HTTP 400 (dataset_not_found): Dataset not found"
+    assert reason == "dataset_not_found"
 
 
 def _request(
@@ -1536,14 +1573,12 @@ def test_runner_rejects_duplicate_tool_names_between_shell_and_other_layers(
             shell_provider=ShellctlProvider(
                 entrypoint="http://shellctl",
                 token="",
-                client_factory=lambda: shell_client,
+                client_factory=lambda: cast(ShellctlClientProtocol, cast(object, shell_client)),
             ),
         ),
     )
     layer_providers = tuple(
-        provider
-        for provider in create_default_layer_providers(shellctl_entrypoint="http://unused")
-        if provider.type_id != DIFY_SHELL_LAYER_TYPE_ID
+        provider for provider in create_default_layer_providers() if provider.type_id != DIFY_SHELL_LAYER_TYPE_ID
     ) + (shell_provider,)
 
     request = CreateRunRequest(
@@ -2756,7 +2791,9 @@ def test_runner_treats_invalid_shell_snapshot_offsets_as_validation_error() -> N
                     run_id="run-invalid-shell-offset",
                     plugin_daemon_http_client=client,
                     dify_api_http_client=client,
-                    layer_providers=create_default_layer_providers(shellctl_entrypoint="http://shellctl"),
+                    layer_providers=create_default_layer_providers(
+                        shell_provider=ShellctlProvider(entrypoint="http://shellctl", token=""),
+                    ),
                 ).run()
 
     asyncio.run(scenario())

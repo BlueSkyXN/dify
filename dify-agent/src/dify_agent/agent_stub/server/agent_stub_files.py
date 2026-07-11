@@ -121,7 +121,7 @@ class DifyApiAgentStubFileRequestHandler:
                 success payload does not contain a non-empty ``url`` string.
         """
         execution_context = self._require_user_context(principal.execution_context)
-        payload = {
+        payload: dict[str, Any] = {
             "tenant_id": execution_context.tenant_id,
             "user_id": execution_context.user_id,
             "filename": request.filename,
@@ -154,13 +154,15 @@ class DifyApiAgentStubFileRequestHandler:
                 not match ``AgentStubFileDownloadResponse``.
         """
         execution_context = self._require_user_context(principal.execution_context)
-        payload = {
+        payload: dict[str, Any] = {
             "tenant_id": execution_context.tenant_id,
             "user_id": execution_context.user_id,
             "user_from": execution_context.user_from,
             "invoke_from": execution_context.invoke_from,
             "file": request.file.model_dump(mode="json", exclude_none=True),
         }
+        if request.for_external is False:
+            payload["for_external"] = False
         data = await self._post_inner_api("/inner/api/download/file/request", payload)
         try:
             return AgentStubFileDownloadResponse.model_validate(data)
