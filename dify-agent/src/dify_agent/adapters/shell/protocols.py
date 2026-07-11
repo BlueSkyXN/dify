@@ -112,8 +112,11 @@ class ShellFileTransferProtocol(Protocol):
 
 
 class ShellResourceProtocol(Protocol):
-    commands: ShellCommandProtocol
-    files: ShellFileTransferProtocol
+    @property
+    def commands(self) -> ShellCommandProtocol: ...
+
+    @property
+    def files(self) -> ShellFileTransferProtocol: ...
 
     async def close(self) -> None: ...
 

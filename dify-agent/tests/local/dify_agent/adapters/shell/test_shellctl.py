@@ -6,15 +6,20 @@ import asyncio
 import base64
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import cast
 
-import httpx
+import httpx2 as httpx
 import pytest
 
 from dify_agent.adapters.shell import shellctl
 from dify_agent.adapters.shell.config import ShellAdapterSettings
 from dify_agent.adapters.shell.factory import create_shell_provider
 from dify_agent.adapters.shell.protocols import ShellCommandResult, ShellProviderError
-from dify_agent.adapters.shell.shellctl import ShellFileTransferError, ShellctlProvider
+from dify_agent.adapters.shell.shellctl import (
+    ShellctlClientProtocol,
+    ShellFileTransferError,
+    ShellctlProvider,
+)
 
 
 @dataclass(slots=True)
@@ -73,9 +78,7 @@ class FakeShellctlClient:
         cwd: str | None = None,
         env: dict[str, str] | None = None,
         timeout: float = 30.0,
-        terminal: object | None = None,
     ) -> _Job:
-        del terminal
         self.run_calls.append(_RunCall(script=script, cwd=cwd, env=env, timeout=timeout))
         if self.run_handler is not None:
             return self.run_handler(script, cwd, env, timeout)
@@ -87,7 +90,14 @@ class FakeShellctlClient:
             return self.wait_handler(job_id, offset, timeout)
         return _Job(job_id=job_id, status="exited", done=True, offset=offset, exit_code=0)
 
-    async def input(self, job_id: str, text: str, *, offset: int, timeout: float = 30.0) -> _Job:
+    async def input(
+        self,
+        job_id: str,
+        text: str,
+        *,
+        offset: int,
+        timeout: float = 30.0,
+    ) -> _Job:
         self.input_calls.append((job_id, text, offset, timeout))
         if self.input_handler is not None:
             return self.input_handler(job_id, text, offset, timeout)
@@ -104,7 +114,13 @@ class FakeShellctlClient:
             return self.terminate_handler(job_id, grace_seconds)
         return _Status(job_id=job_id)
 
-    async def delete(self, job_id: str, *, force: bool = False, grace_seconds: float | None = None) -> None:
+    async def delete(
+        self,
+        job_id: str,
+        *,
+        force: bool = False,
+        grace_seconds: float | None = None,
+    ) -> None:
         self.delete_calls.append((job_id, force, grace_seconds))
         return None
 
@@ -113,7 +129,15 @@ class FakeShellctlClient:
 
 
 def _provider(client: FakeShellctlClient) -> ShellctlProvider:
-    return ShellctlProvider(entrypoint="http://shellctl", token="", client_factory=lambda: client)
+    return ShellctlProvider(
+        entrypoint="http://shellctl",
+        token="",
+        client_factory=lambda: _client_protocol(client),
+    )
+
+
+def _client_protocol(client: FakeShellctlClient) -> ShellctlClientProtocol:
+    return cast(ShellctlClientProtocol, cast(object, client))
 
 
 def test_factory_unknown_provider_raises() -> None:
@@ -363,7 +387,10 @@ def test_file_transfer_timeout_is_an_end_to_end_budget(monkeypatch: pytest.Monke
     client = FakeShellctlClient(run_handler=run_handler, wait_handler=wait_handler)
 
     async def scenario() -> None:
-        transfer = shellctl.ShellctlFileTransfer(client=client, timeout=5.0)
+        transfer = shellctl.ShellctlFileTransfer(
+            client=_client_protocol(client),
+            timeout=5.0,
+        )
         await transfer.upload(content=b"payload", remote_path="out.bin")
 
     asyncio.run(scenario())
@@ -389,7 +416,10 @@ def test_file_transfer_timeout_exhaustion_raises_timeout_and_still_deletes_job(
     client = FakeShellctlClient(run_handler=run_handler)
 
     async def scenario() -> None:
-        transfer = shellctl.ShellctlFileTransfer(client=client, timeout=5.0)
+        transfer = shellctl.ShellctlFileTransfer(
+            client=_client_protocol(client),
+            timeout=5.0,
+        )
         with pytest.raises(ShellProviderError, match="timed out") as exc_info:
             await transfer.upload(content=b"payload", remote_path="out.bin")
         assert exc_info.value.code == "timeout"
