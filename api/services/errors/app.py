@@ -14,6 +14,10 @@ class WorkflowNotFoundError(Exception):
     pass
 
 
+class WorkflowAgentNodeDslExportUnsupportedError(ValueError):
+    """Raised when workflow DSL export would omit Agent v2 binding and snapshot data."""
+
+
 class WorkflowIdFormatError(Exception):
     pass
 
