@@ -40,10 +40,14 @@ const WorkflowProcessItem = ({
         ? t($ => $['common.workflowProcessFailed'], { ns: 'workflow' })
         : paused
           ? t($ => $['common.workflowProcessPaused'], { ns: 'workflow' })
-          : undefined
+          : fallbackTitle
+  const hasTracing = data.tracing.length > 0
   const collapsedTitle = failed
-    ? data.error || latestNode?.error || latestNode?.title || fallbackTitle
+    ? (hasTracing
+        ? (latestNode?.error || latestNode?.title || fallbackTitle)
+        : (data.error || latestNode?.error || latestNode?.title || fallbackTitle))
     : latestNode?.title || fallbackTitle
+  const showCollapsedWorkflowError = collapse && failed && !!data.error && !hasTracing
 
   useEffect(() => {
     setCollapse(!expand)
@@ -110,9 +114,10 @@ const WorkflowProcessItem = ({
           )
         }
         <div
+          data-testid="workflow-process-title"
           className={cn(
             'min-w-0 grow truncate system-xs-medium',
-            collapse && failed && data.error ? 'text-text-destructive' : 'text-text-secondary',
+            showCollapsedWorkflowError ? 'text-text-destructive' : 'text-text-secondary',
           )}
         >
           {!collapse ? fallbackTitle : collapsedTitle}
@@ -126,7 +131,8 @@ const WorkflowProcessItem = ({
               failed && data.error && (
                 <div
                   role="alert"
-                  className="mb-1.5 rounded-lg border-[0.5px] border-state-destructive-border bg-state-destructive-hover px-2 py-1.5 system-xs-regular text-text-destructive"
+                  data-testid="workflow-process-error"
+                  className="mb-1.5 rounded-lg border-[0.5px] border-state-destructive-border bg-state-destructive-hover px-2 py-1.5 system-xs-regular break-words whitespace-pre-wrap text-text-destructive"
                 >
                   {data.error}
                 </div>
