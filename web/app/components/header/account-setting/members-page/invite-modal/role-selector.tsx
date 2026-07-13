@@ -154,8 +154,7 @@ const RoleSelector = ({ value, onChange }: RoleSelectorProps) => {
       >
         <ScrollArea
           ref={setContainerElement}
-          className="h-70"
-          slotClassNames={{ viewport: 'overscroll-contain' }}
+          slotClassNames={{ viewport: 'overscroll-contain max-h-70' }}
         >
           <div className="p-1">
             {rolesLoading
