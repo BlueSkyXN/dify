@@ -177,8 +177,10 @@ const ChatInputArea = ({ readonly, botName, customPlaceholder, showFeatureBar, s
   return (
     <>
       <div className={cn('pointer-events-auto relative z-10 overflow-hidden rounded-xl border border-components-chat-input-border bg-components-panel-bg-blur pb-[9px] shadow-md', isDragActive && 'border border-dashed border-components-option-card-option-selected-border', disabled && 'pointer-events-none border-components-panel-border opacity-50 shadow-none')}>
-        <div className="relative max-h-[158px] overflow-x-hidden overflow-y-auto px-[9px] pt-[9px]">
+        <div className="px-[9px] pt-[9px]">
           <FileListInChatInput fileConfig={visionConfig!} />
+        </div>
+        <div className="relative max-h-[158px] overflow-x-hidden overflow-y-auto px-[9px]">
           <div ref={wrapperRef} className="flex items-center justify-between">
             <div className="relative flex w-full grow items-center">
               <div ref={textValueRef} className="pointer-events-none invisible absolute size-auto p-1 body-lg-regular leading-6 whitespace-pre">
@@ -209,8 +211,12 @@ const ChatInputArea = ({ readonly, botName, customPlaceholder, showFeatureBar, s
             </div>
             {!isMultipleLine && operation}
           </div>
-          {showVoiceInput && (<VoiceInput onCancel={() => setShowVoiceInput(false)} onConverted={text => handleQueryChange(text)} />)}
         </div>
+        {showVoiceInput && (
+          <div className="px-[9px]">
+            <VoiceInput onCancel={() => setShowVoiceInput(false)} onConverted={text => handleQueryChange(text)} />
+          </div>
+        )}
         {isMultipleLine && (<div className="px-[9px]">{operation}</div>)}
       </div>
       {shouldShowFooterNotice && (
