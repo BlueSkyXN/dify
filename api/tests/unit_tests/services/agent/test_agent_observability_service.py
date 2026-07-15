@@ -43,6 +43,16 @@ def test_resolve_source_filter_accepts_structured_sources() -> None:
     assert timestamp_version_filter.workflow_version == "2026-07-06 02:17:12.910515"
     assert timestamp_version_filter.node_id == "node-1"
 
+    colon_node_filter = AgentObservabilityService.resolve_source_filter("workflow:app-2:workflow-1:v1:agent:1")
+    assert colon_node_filter.workflow_version == "v1"
+    assert colon_node_filter.node_id == "agent:1"
+
+    timestamp_version_colon_node_filter = AgentObservabilityService.resolve_source_filter(
+        "workflow:app-2:workflow-1:2026-07-06 02:17:12.910515:agent:1"
+    )
+    assert timestamp_version_colon_node_filter.workflow_version == "2026-07-06 02:17:12.910515"
+    assert timestamp_version_colon_node_filter.node_id == "agent:1"
+
     legacy_filter = AgentObservabilityService.resolve_source_filter("console")
     assert legacy_filter.kind == "webapp"
     assert legacy_filter.invoke_from == InvokeFrom.EXPLORE
@@ -209,6 +219,128 @@ def test_list_workflow_sources_deduplicates_versions_and_nodes_by_app() -> None:
     )
 
     assert [source["id"] for source in sources] == ["workflow:app-a", "workflow:app-b"]
+
+
+def test_list_workflow_conversation_logs_aggregates_app_level_source() -> None:
+    conversation = SimpleNamespace(
+        id="conversation-1",
+        name="Conversation",
+        from_end_user_id="end-user-1",
+        read_at=None,
+        created_at=datetime(2026, 7, 15, 1, 0, tzinfo=UTC),
+        updated_at=datetime(2026, 7, 15, 1, 1, tzinfo=UTC),
+    )
+    workflow_app = SimpleNamespace(
+        id="app-a",
+        name="Alpha",
+        icon_type=None,
+        icon=None,
+        icon_background=None,
+    )
+
+    class FakeRow:
+        message_count = 2
+        paused_count = 0
+        failed_count = 0
+        created_at = datetime(2026, 7, 15, 1, 0, tzinfo=UTC)
+        updated_at = datetime(2026, 7, 15, 1, 1, tzinfo=UTC)
+
+        def __getitem__(self, index: int):
+            return (conversation, workflow_app)[index]
+
+    class FakeResult:
+        def all(self):
+            return [FakeRow()]
+
+    class FakeSession:
+        statement = None
+
+        def execute(self, stmt):
+            self.statement = stmt
+            return FakeResult()
+
+    session = FakeSession()
+    service = AgentObservabilityService(session)
+    source_filter = AgentObservabilityService.resolve_source_filter("workflow:app-a")
+
+    logs = service._list_workflow_conversation_logs(
+        app=SimpleNamespace(tenant_id="tenant-1"),  # type: ignore[arg-type]
+        agent_id="agent-1",
+        params=AgentLogQueryParams(sources=("workflow:app-a",)),
+        source_filter=source_filter,
+    )
+
+    assert len(logs) == 1
+    assert logs[0]["id"] == "conversation-1"
+    assert logs[0]["message_count"] == 2
+    assert logs[0]["source"]["id"] == "workflow:app-a"
+
+    sql = str(session.statement.compile())
+    group_by_sql = sql.split(" GROUP BY ", maxsplit=1)[1]
+    assert "workflow_agent_node_bindings.workflow_id" not in group_by_sql
+    assert "workflow_agent_node_bindings.workflow_version" not in group_by_sql
+    assert "workflow_agent_node_bindings.node_id" not in group_by_sql
+
+
+def test_list_workflow_conversation_logs_preserves_exact_source_grouping() -> None:
+    conversation = SimpleNamespace(
+        id="conversation-1",
+        name="Conversation",
+        from_end_user_id="end-user-1",
+        read_at=None,
+        created_at=datetime(2026, 7, 15, 1, 0, tzinfo=UTC),
+        updated_at=datetime(2026, 7, 15, 1, 1, tzinfo=UTC),
+    )
+    workflow_app = SimpleNamespace(
+        id="app-a",
+        name="Alpha",
+        icon_type=None,
+        icon=None,
+        icon_background=None,
+    )
+
+    class FakeRow:
+        workflow_id = "workflow-1"
+        workflow_version = "v1"
+        node_id = "agent:1"
+        message_count = 1
+        paused_count = 0
+        failed_count = 0
+        created_at = conversation.created_at
+        updated_at = conversation.updated_at
+
+        def __getitem__(self, index: int):
+            return (conversation, workflow_app)[index]
+
+    class FakeResult:
+        def all(self):
+            return [FakeRow()]
+
+    class FakeSession:
+        statement = None
+
+        def execute(self, stmt):
+            self.statement = stmt
+            return FakeResult()
+
+    session = FakeSession()
+    service = AgentObservabilityService(session)
+    source_filter = AgentObservabilityService.resolve_source_filter("workflow:app-a:workflow-1:v1:agent:1")
+
+    logs = service._list_workflow_conversation_logs(
+        app=SimpleNamespace(tenant_id="tenant-1"),  # type: ignore[arg-type]
+        agent_id="agent-1",
+        params=AgentLogQueryParams(sources=("workflow:app-a:workflow-1:v1:agent:1",)),
+        source_filter=source_filter,
+    )
+
+    assert logs[0]["source"]["id"] == "workflow:app-a:workflow-1:v1:agent:1"
+
+    sql = str(session.statement.compile())
+    group_by_sql = sql.split(" GROUP BY ", maxsplit=1)[1]
+    assert "workflow_agent_node_bindings.workflow_id" in group_by_sql
+    assert "workflow_agent_node_bindings.workflow_version" in group_by_sql
+    assert "workflow_agent_node_bindings.node_id" in group_by_sql
 
 
 def test_serialize_log_message_returns_frontend_log_shape() -> None:

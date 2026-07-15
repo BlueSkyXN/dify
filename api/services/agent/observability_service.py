@@ -94,19 +94,40 @@ class AgentObservabilityService:
         if lowered == "workflow":
             return AgentSourceFilter(kind="workflow")
         if lowered.startswith("workflow:"):
-            parts = normalized.split(":")
+            parts = normalized.split(":", 3)
             if len(parts) == 2 and parts[1]:
                 return AgentSourceFilter(kind="workflow", app_id=parts[1])
-            if len(parts) < 5 or not all(parts[1:]):
+            if len(parts) != 4 or not all(parts[1:]):
                 raise ValueError(f"Unsupported source: {source}")
+            workflow_version, node_id = cls._parse_workflow_source_tail(parts[3], source=source)
             return AgentSourceFilter(
                 kind="workflow",
                 app_id=parts[1],
                 workflow_id=parts[2],
-                workflow_version=":".join(parts[3:-1]),
-                node_id=parts[-1],
+                workflow_version=workflow_version,
+                node_id=node_id,
             )
         return AgentSourceFilter(kind="webapp", invoke_from=cls.resolve_source(source))
+
+    @staticmethod
+    def _parse_workflow_source_tail(tail: str, *, source: str) -> tuple[str, str]:
+        """Split a timestamp-or-label workflow version from an arbitrary colon-bearing node ID."""
+        separator_indexes = [index for index, character in enumerate(tail) if character == ":"]
+        for separator_index in reversed(separator_indexes):
+            workflow_version = tail[:separator_index]
+            node_id = tail[separator_index + 1 :]
+            if not workflow_version or not node_id:
+                continue
+            try:
+                datetime.fromisoformat(workflow_version)
+            except ValueError:
+                continue
+            return workflow_version, node_id
+
+        workflow_version, separator, node_id = tail.partition(":")
+        if not separator or not workflow_version or not node_id:
+            raise ValueError(f"Unsupported source: {source}")
+        return workflow_version, node_id
 
     @classmethod
     def resolve_source_filters(cls, sources: tuple[str, ...]) -> list[AgentSourceFilter]:
@@ -281,19 +302,40 @@ class AgentObservabilityService:
         self, *, app: App, agent_id: str, params: AgentLogQueryParams, source_filter: AgentSourceFilter
     ) -> list[dict[str, Any]]:
         workflow_app = aliased(App)
+        is_app_source = (
+            source_filter.kind == "workflow"
+            and source_filter.app_id is not None
+            and source_filter.workflow_id is None
+            and source_filter.workflow_version is None
+            and source_filter.node_id is None
+        )
+        source_columns = (
+            ()
+            if is_app_source
+            else (
+                WorkflowAgentNodeBinding.workflow_id,
+                WorkflowAgentNodeBinding.workflow_version,
+                WorkflowAgentNodeBinding.node_id,
+            )
+        )
         stmt = (
             select(
                 Conversation,
                 workflow_app,
-                WorkflowAgentNodeBinding.workflow_id,
-                WorkflowAgentNodeBinding.workflow_version,
-                WorkflowAgentNodeBinding.node_id,
+                *source_columns,
                 func.count(sa.distinct(Message.id)).label("message_count"),
                 func.max(Message.created_at).label("created_at"),
                 func.max(Message.updated_at).label("updated_at"),
-                func.sum(sa.case((Message.status == MessageStatus.PAUSED, 1), else_=0)).label("paused_count"),
-                func.sum(
-                    sa.case((or_(Message.error.is_not(None), Message.status == MessageStatus.ERROR), 1), else_=0)
+                func.count(
+                    sa.distinct(sa.case((Message.status == MessageStatus.PAUSED, Message.id), else_=None))
+                ).label("paused_count"),
+                func.count(
+                    sa.distinct(
+                        sa.case(
+                            (or_(Message.error.is_not(None), Message.status == MessageStatus.ERROR), Message.id),
+                            else_=None,
+                        )
+                    )
                 ).label("failed_count"),
             )
             .select_from(Message)
@@ -318,13 +360,7 @@ class AgentObservabilityService:
             )
             .join(workflow_app, workflow_app.id == WorkflowAgentNodeBinding.app_id)
             .where(Message.workflow_run_id.is_not(None), Conversation.app_id == WorkflowAgentNodeBinding.app_id)
-            .group_by(
-                Conversation.id,
-                workflow_app.id,
-                WorkflowAgentNodeBinding.workflow_id,
-                WorkflowAgentNodeBinding.workflow_version,
-                WorkflowAgentNodeBinding.node_id,
-            )
+            .group_by(Conversation.id, workflow_app.id, *source_columns)
         )
         stmt = self._apply_observability_filters(stmt, params=params, source_filter=source_filter)
         stmt = self._apply_workflow_source_filter(stmt, source_filter)
@@ -335,11 +371,15 @@ class AgentObservabilityService:
                 message_count=row.message_count,
                 paused_count=row.paused_count,
                 failed_count=row.failed_count,
-                source=self._serialize_workflow_source(
-                    app=row[1],
-                    workflow_id=row.workflow_id,
-                    workflow_version=row.workflow_version,
-                    node_id=row.node_id,
+                source=(
+                    self._serialize_workflow_app_source(app=row[1])
+                    if is_app_source
+                    else self._serialize_workflow_source(
+                        app=row[1],
+                        workflow_id=row.workflow_id,
+                        workflow_version=row.workflow_version,
+                        node_id=row.node_id,
+                    )
                 ),
                 created_at=row.created_at,
                 updated_at=row.updated_at,
