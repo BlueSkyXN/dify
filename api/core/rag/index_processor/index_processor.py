@@ -63,13 +63,21 @@ class IndexProcessor:
         summary_index_setting: SummaryIndexSettingDict | None = None,
     ) -> IndexingResultDict:
         with session_factory.create_session() as session:
-            document = session.scalar(select(Document).where(Document.id == document_id).limit(1))
-            if not document:
-                raise KnowledgeIndexNodeError(f"Document {document_id} not found.")
-
             dataset = session.scalar(select(Dataset).where(Dataset.id == dataset_id).limit(1))
             if not dataset:
                 raise KnowledgeIndexNodeError(f"Dataset {dataset_id} not found.")
+
+            document = session.scalar(
+                select(Document)
+                .where(
+                    Document.id == document_id,
+                    Document.dataset_id == dataset.id,
+                    Document.tenant_id == dataset.tenant_id,
+                )
+                .limit(1)
+            )
+            if not document:
+                raise KnowledgeIndexNodeError(f"Document {document_id} not found.")
 
             dataset_name_value = dataset.name
             document_name_value = document.name
@@ -81,7 +89,11 @@ class IndexProcessor:
             index_processor = IndexProcessorFactory(dataset.chunk_structure).init_index_processor()
             if original_document_id:
                 segments = session.scalars(
-                    select(DocumentSegment).where(DocumentSegment.document_id == original_document_id)
+                    select(DocumentSegment).where(
+                        DocumentSegment.document_id == original_document_id,
+                        DocumentSegment.dataset_id == dataset.id,
+                        DocumentSegment.tenant_id == dataset.tenant_id,
+                    )
                 ).all()
                 if segments:
                     index_node_ids = [segment.index_node_id for segment in segments if segment.index_node_id]
@@ -93,7 +105,11 @@ class IndexProcessor:
 
         with session_factory.create_session() as session, session.begin():
             if index_node_ids:
-                segment_delete_stmt = delete(DocumentSegment).where(DocumentSegment.document_id == original_document_id)
+                segment_delete_stmt = delete(DocumentSegment).where(
+                    DocumentSegment.document_id == original_document_id,
+                    DocumentSegment.dataset_id == dataset.id,
+                    DocumentSegment.tenant_id == dataset.tenant_id,
+                )
                 session.execute(segment_delete_stmt)
 
         index_processor.index(dataset, document, chunks)
@@ -108,6 +124,7 @@ class IndexProcessor:
                     select(func.sum(DocumentSegment.word_count)).where(
                         DocumentSegment.document_id == document_id,
                         DocumentSegment.dataset_id == dataset_id,
+                        DocumentSegment.tenant_id == dataset.tenant_id,
                     )
                 )
             ) or 0
@@ -123,6 +140,7 @@ class IndexProcessor:
                 .where(
                     DocumentSegment.document_id == document_id,
                     DocumentSegment.dataset_id == dataset_id,
+                    DocumentSegment.tenant_id == dataset.tenant_id,
                 )
                 .values(
                     status="completed",
@@ -152,14 +170,22 @@ class IndexProcessor:
     ) -> Preview:
         doc_language = None
         with session_factory.create_session() as session:
-            if document_id:
-                document = session.scalar(select(Document).where(Document.id == document_id).limit(1))
-            else:
-                document = None
-
             dataset = session.scalar(select(Dataset).where(Dataset.id == dataset_id).limit(1))
             if not dataset:
                 raise KnowledgeIndexNodeError(f"Dataset {dataset_id} not found.")
+
+            if document_id:
+                document = session.scalar(
+                    select(Document)
+                    .where(
+                        Document.id == document_id,
+                        Document.dataset_id == dataset.id,
+                        Document.tenant_id == dataset.tenant_id,
+                    )
+                    .limit(1)
+                )
+            else:
+                document = None
 
             if summary_index_setting is None:
                 summary_index_setting = dataset.summary_index_setting

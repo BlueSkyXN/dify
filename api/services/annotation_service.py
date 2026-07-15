@@ -96,7 +96,7 @@ class AppAnnotationService:
             select(MessageAnnotation)
             .where(
                 MessageAnnotation.id == annotation_ref.annotation_id,
-                MessageAnnotation.app_id == annotation_ref.app_id,
+                MessageAnnotation.app_id == annotation_ref.app.app_id,
             )
             .limit(1)
         )
@@ -338,15 +338,15 @@ class AppAnnotationService:
         session.commit()
         # if annotation reply is enabled , add annotation to index
         app_annotation_setting = session.scalar(
-            select(AppAnnotationSetting).where(AppAnnotationSetting.app_id == annotation_ref.app_id).limit(1)
+            select(AppAnnotationSetting).where(AppAnnotationSetting.app_id == annotation_ref.app.app_id).limit(1)
         )
 
         if app_annotation_setting:
             update_annotation_to_index_task.delay(
                 annotation.id,
                 annotation.question_text,
-                annotation_ref.tenant_id,
-                annotation_ref.app_id,
+                annotation_ref.app.tenant_id,
+                annotation_ref.app.app_id,
                 app_annotation_setting.collection_binding_id,
             )
 
@@ -363,7 +363,7 @@ class AppAnnotationService:
 
         annotation_hit_histories = session.scalars(
             select(AppAnnotationHitHistory).where(
-                AppAnnotationHitHistory.app_id == annotation_ref.app_id,
+                AppAnnotationHitHistory.app_id == annotation_ref.app.app_id,
                 AppAnnotationHitHistory.annotation_id == annotation_ref.annotation_id,
             )
         ).all()
@@ -374,14 +374,14 @@ class AppAnnotationService:
         session.commit()
         # if annotation reply is enabled , delete annotation index
         app_annotation_setting = session.scalar(
-            select(AppAnnotationSetting).where(AppAnnotationSetting.app_id == annotation_ref.app_id).limit(1)
+            select(AppAnnotationSetting).where(AppAnnotationSetting.app_id == annotation_ref.app.app_id).limit(1)
         )
 
         if app_annotation_setting:
             delete_annotation_index_task.delay(
                 annotation.id,
-                annotation_ref.app_id,
-                annotation_ref.tenant_id,
+                annotation_ref.app.app_id,
+                annotation_ref.app.tenant_id,
                 app_annotation_setting.collection_binding_id,
             )
 
@@ -391,7 +391,10 @@ class AppAnnotationService:
         annotations_to_delete = session.execute(
             select(MessageAnnotation, AppAnnotationSetting)
             .outerjoin(AppAnnotationSetting, MessageAnnotation.app_id == AppAnnotationSetting.app_id)
-            .where(MessageAnnotation.id.in_(annotation_ids), MessageAnnotation.app_id == app_ref.app_id)
+            .where(
+                MessageAnnotation.id.in_(annotation_ids),
+                MessageAnnotation.app_id == app_ref.app_id,
+            )
         ).all()
 
         if not annotations_to_delete:
@@ -571,7 +574,7 @@ class AppAnnotationService:
         stmt = (
             select(AppAnnotationHitHistory)
             .where(
-                AppAnnotationHitHistory.app_id == annotation_ref.app_id,
+                AppAnnotationHitHistory.app_id == annotation_ref.app.app_id,
                 AppAnnotationHitHistory.annotation_id == annotation_ref.annotation_id,
             )
             .order_by(AppAnnotationHitHistory.created_at.desc())
