@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from extensions.ext_database import db
-from models.model import AccountTrialAppRecord, TrialApp
+from models.model import AccountTrialAppRecord, App, AppMode, TrialApp
 from services import recommended_app_service as service_module
 from services.recommended_app_service import RecommendedAppService
 
@@ -103,6 +103,37 @@ def _mock_factory_for_apps(
         MagicMock(return_value=builtin_instance),
     )
     return retrieval_instance, builtin_instance
+
+
+def _mock_factory_for_app_detail(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    result: RecommendedAppPayload | None,
+) -> MagicMock:
+    retrieval_instance = MagicMock()
+    retrieval_instance.get_recommend_app_detail.return_value = result
+    retrieval_factory = MagicMock(return_value=retrieval_instance)
+    monkeypatch.setattr(service_module.dify_config, "HOSTED_FETCH_APP_TEMPLATES_MODE", "remote", raising=False)
+    monkeypatch.setattr(
+        service_module.RecommendAppRetrievalFactory,
+        "get_recommend_app_factory",
+        MagicMock(return_value=retrieval_factory),
+    )
+    return retrieval_instance
+
+
+def _persist_app(session: Session, *, name: str) -> App:
+    app = App(
+        tenant_id=str(uuid.uuid4()),
+        name=name,
+        mode=AppMode.CHAT,
+        enable_site=True,
+        enable_api=True,
+    )
+    app.id = str(uuid.uuid4())
+    session.add(app)
+    session.commit()
+    return app
 
 
 # ── Pure logic tests: get_recommended_apps_and_categories ──────────────
@@ -202,6 +233,46 @@ class TestRecommendedAppServiceGetApps:
             RecommendedAppService.get_recommended_apps_and_categories("en-US", session=db.session())
 
             mock_factory_class.get_recommend_app_factory.assert_called_with(mode)
+
+
+# ── Pure logic tests: get_recommend_app_detail ─────────────────────────
+
+
+# ── Database-backed tests: get_app ─────────────────────────────────────
+
+
+class TestRecommendedAppServiceGetApp:
+    def test_returns_normal_recommended_app(
+        self, db_session_with_containers: Session, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        app = _persist_app(db_session_with_containers, name="Recommended App")
+        retrieval_instance = _mock_factory_for_app_detail(
+            monkeypatch,
+            result=RecommendedAppPayload(id=app.id),
+        )
+        feature_lookup = MagicMock(side_effect=AssertionError("get_app must not inspect trial features"))
+        monkeypatch.setattr(service_module.FeatureService, "get_system_features", feature_lookup)
+
+        result = RecommendedAppService.get_app(app.id, session=db_session_with_containers)
+
+        assert result is app
+        retrieval_instance.get_recommend_app_detail.assert_called_once_with(
+            app.id, session=db_session_with_containers
+        )
+        feature_lookup.assert_not_called()
+
+    def test_returns_none_when_app_is_not_recommended(
+        self, db_session_with_containers: Session, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        app = _persist_app(db_session_with_containers, name="Private App")
+        retrieval_instance = _mock_factory_for_app_detail(monkeypatch, result=None)
+
+        result = RecommendedAppService.get_app(app.id, session=db_session_with_containers)
+
+        assert result is None
+        retrieval_instance.get_recommend_app_detail.assert_called_once_with(
+            app.id, session=db_session_with_containers
+        )
 
 
 # ── Pure logic tests: get_recommend_app_detail ─────────────────────────
