@@ -62,7 +62,7 @@ from werkzeug.datastructures import FileStorage
 from models.enums import MessageStatus
 from models.model import App, AppMode, AppModelConfig, Message
 from models.workflow import Workflow
-from services.app_ref_service import MessageRef
+from services.app_ref_service import AppRef, MessageRef
 from services.audio_service import AudioService
 from services.errors.audio import (
     AudioTooLargeServiceError,
@@ -523,8 +523,7 @@ class TestAudioServiceTTS:
         app = factory.create_app_mock(mode=AppMode.CHAT)
         message_id = "00000000-0000-0000-0000-000000000001"
         message_ref = MessageRef(
-            tenant_id=app.tenant_id,
-            app_id=app.id,
+            app=AppRef(tenant_id=app.tenant_id, app_id=app.id),
             message_id=message_id,
             end_user_id="end-user-1",
             account_id="account-1",

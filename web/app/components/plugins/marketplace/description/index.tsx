@@ -113,6 +113,9 @@ const Description = ({
     if (!container || !header)
       return
 
+    const previousOverflowAnchor = container.style.overflowAnchor
+    container.style.overflowAnchor = 'none'
+
     let maxHeaderHeight = 0
     let lastAppliedOffset = 0
     const updateOffset = () => {
@@ -123,12 +126,8 @@ const Description = ({
       const baseScrollableTop = Math.max(0, currentScrollableTop - lastAppliedOffset)
       const shouldCompensate = baseScrollableTop <= maxHeaderHeight
       const nextOffset = shouldCompensate ? collapsedHeight : 0
-      const offsetDelta = nextOffset - lastAppliedOffset
-
       if (nextOffset > 0) {
         container.style.setProperty('--marketplace-header-collapse-offset', `${nextOffset}px`)
-        if (offsetDelta !== 0 && container.scrollTop > 0)
-          container.scrollTop = Math.max(0, container.scrollTop + offsetDelta)
       }
       else {
         container.style.removeProperty('--marketplace-header-collapse-offset')
@@ -142,16 +141,17 @@ const Description = ({
     if (typeof ResizeObserver === 'undefined') {
       return () => {
         container.style.removeProperty('--marketplace-header-collapse-offset')
+        container.style.overflowAnchor = previousOverflowAnchor
       }
     }
 
     const observer = new ResizeObserver(updateOffset)
     observer.observe(header)
-    observer.observe(container)
 
     return () => {
       observer.disconnect()
       container.style.removeProperty('--marketplace-header-collapse-offset')
+      container.style.overflowAnchor = previousOverflowAnchor
     }
   }, [isMarketplacePlatform, scrollContainerId])
 

@@ -7623,6 +7623,7 @@ Initiate OAuth login process
 | provider | path | OAuth provider name (github/google) | Yes | string |
 | invite_token | query | Optional invitation token | No | string |
 | language | query | Preferred interface language | No | string |
+| redirect_url | query | Relative page to resume after login | No | string |
 | timezone | query | Preferred timezone | No | string |
 
 #### Responses
@@ -8957,6 +8958,135 @@ Returns an SSE event stream with loop progress and results.
 | ---- | ----------- | ------ |
 | 200 | Loop node run started successfully (SSE stream) | **application/json**: [GeneratedAppResponse](#generatedappresponse)<br> |
 | 404 | Snippet or draft workflow not found |  |
+
+### [GET] /snippets/{snippet_id}/workflows/draft/nodes/{node_id}/agent-composer
+#### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ------ |
+| snapshot_id | query |  | No | string |
+| node_id | path |  | Yes | string |
+| snippet_id | path |  | Yes | string (uuid) |
+
+#### Responses
+
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 200 | Snippet agent composer state | **application/json**: [WorkflowAgentComposerResponse](#workflowagentcomposerresponse)<br> |
+
+### [PUT] /snippets/{snippet_id}/workflows/draft/nodes/{node_id}/agent-composer
+#### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ------ |
+| node_id | path |  | Yes | string |
+| snippet_id | path |  | Yes | string (uuid) |
+
+#### Request Body
+
+| Required | Schema |
+| -------- | ------ |
+|  Yes | **application/json**: [ComposerSavePayload](#composersavepayload)<br> |
+
+#### Responses
+
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 200 | Snippet agent composer saved | **application/json**: [WorkflowAgentComposerResponse](#workflowagentcomposerresponse)<br> |
+
+### [GET] /snippets/{snippet_id}/workflows/draft/nodes/{node_id}/agent-composer/candidates
+#### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ------ |
+| node_id | path |  | Yes | string |
+| snippet_id | path |  | Yes | string (uuid) |
+
+#### Responses
+
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 200 | Snippet agent composer candidates | **application/json**: [AgentComposerCandidatesResponse](#agentcomposercandidatesresponse)<br> |
+
+### [POST] /snippets/{snippet_id}/workflows/draft/nodes/{node_id}/agent-composer/copy-from-roster
+#### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ------ |
+| node_id | path |  | Yes | string |
+| snippet_id | path |  | Yes | string (uuid) |
+
+#### Request Body
+
+| Required | Schema |
+| -------- | ------ |
+|  Yes | **application/json**: [WorkflowComposerCopyFromRosterPayload](#workflowcomposercopyfromrosterpayload)<br> |
+
+#### Responses
+
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 200 | Roster agent copied into snippet | **application/json**: [WorkflowAgentComposerResponse](#workflowagentcomposerresponse)<br> |
+
+### [POST] /snippets/{snippet_id}/workflows/draft/nodes/{node_id}/agent-composer/impact
+#### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ------ |
+| node_id | path |  | Yes | string |
+| snippet_id | path |  | Yes | string (uuid) |
+
+#### Request Body
+
+| Required | Schema |
+| -------- | ------ |
+|  Yes | **application/json**: [ComposerSavePayload](#composersavepayload)<br> |
+
+#### Responses
+
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 200 | Snippet agent composer impact | **application/json**: [AgentComposerImpactResponse](#agentcomposerimpactresponse)<br> |
+
+### [POST] /snippets/{snippet_id}/workflows/draft/nodes/{node_id}/agent-composer/save-to-roster
+#### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ------ |
+| node_id | path |  | Yes | string |
+| snippet_id | path |  | Yes | string (uuid) |
+
+#### Request Body
+
+| Required | Schema |
+| -------- | ------ |
+|  Yes | **application/json**: [ComposerSavePayload](#composersavepayload)<br> |
+
+#### Responses
+
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 200 | Snippet agent saved to roster | **application/json**: [WorkflowAgentComposerResponse](#workflowagentcomposerresponse)<br> |
+
+### [POST] /snippets/{snippet_id}/workflows/draft/nodes/{node_id}/agent-composer/validate
+#### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ------ |
+| node_id | path |  | Yes | string |
+| snippet_id | path |  | Yes | string (uuid) |
+
+#### Request Body
+
+| Required | Schema |
+| -------- | ------ |
+|  Yes | **application/json**: [ComposerSavePayload](#composersavepayload)<br> |
+
+#### Responses
+
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 200 | Snippet agent composer validation | **application/json**: [AgentComposerValidateResponse](#agentcomposervalidateresponse)<br> |
 
 ### [GET] /snippets/{snippet_id}/workflows/draft/nodes/{node_id}/last-run
 **Get the last run result for a specific node in snippet draft workflow**
@@ -13066,6 +13196,7 @@ default (the config form sends the full desired feature state on save).
 | permission_keys | [ string ] |  | No |
 | published_reference_count | integer |  | No |
 | published_references | [ [AgentAppPublishedReferenceResponse](#agentapppublishedreferenceresponse) ] |  | No |
+| reference_count | integer |  | No |
 | role | string |  | No |
 | tags | [ [Tag](#tag) ] |  | No |
 | updated_at | integer |  | No |
@@ -13352,6 +13483,7 @@ Editable Agent Soul draft workspace type.
 | file_id | string |  | No |
 | hash | string |  | No |
 | id | string |  | Yes |
+| is_missing | boolean |  | No |
 | mime_type | string |  | No |
 | name | string |  | Yes |
 | size | integer |  | No |
@@ -13386,9 +13518,10 @@ Stable Agent Soul reference to one config file payload.
 
 | Name | Type | Description | Required |
 | ---- | ---- | ----------- | -------- |
-| file_id | string |  | Yes |
+| file_id | string |  | No |
 | file_kind | string, <br>**Available values:** "tool_file", "upload_file" | *Enum:* `"tool_file"`, `"upload_file"` | Yes |
 | hash | string |  | No |
+| is_missing | boolean |  | No |
 | mime_type | string |  | No |
 | name | string |  | Yes |
 | size | integer |  | No |
@@ -13483,6 +13616,7 @@ Audit operation recorded for Agent Soul version/revision changes.
 | file_id | string |  | No |
 | hash | string |  | No |
 | id | string |  | Yes |
+| is_missing | boolean |  | No |
 | mime_type | string |  | No |
 | name | string |  | Yes |
 | size | integer |  | No |
@@ -13518,9 +13652,10 @@ Stable Agent Soul reference to one normalized skill archive.
 | Name | Type | Description | Required |
 | ---- | ---- | ----------- | -------- |
 | description | string |  | No |
-| file_id | string |  | Yes |
+| file_id | string |  | No |
 | file_kind | string, <br>**Default:** tool_file |  | No |
 | hash | string |  | No |
+| is_missing | boolean |  | No |
 | mime_type | string |  | No |
 | name | string |  | Yes |
 | size | integer |  | No |
@@ -13858,6 +13993,7 @@ Supported icon storage formats for Agent roster entries.
 | published_node_reference_count | integer |  | No |
 | published_reference_count | integer |  | No |
 | published_references | [ [AgentPublishedReferenceResponse](#agentpublishedreferenceresponse) ] |  | No |
+| reference_count | integer |  | No |
 | role | string |  | No |
 | scope | [AgentScope](#agentscope) |  | Yes |
 | source | [AgentSource](#agentsource) |  | Yes |
@@ -14299,6 +14435,7 @@ section may be empty, which is how callers express "no knowledge layer".
 | published_node_reference_count | integer |  | No |
 | published_reference_count | integer |  | No |
 | published_references | [ [AgentPublishedReferenceResponse](#agentpublishedreferenceresponse) ] |  | No |
+| reference_count | integer |  | No |
 | role | string |  | No |
 | scope | [AgentScope](#agentscope) |  | Yes |
 | source | [AgentSource](#agentsource) |  | Yes |
@@ -15188,6 +15325,7 @@ This class is used to store the schema information of an api based tool.
 | id | string |  | Yes |
 | imported_dsl_version | string |  | No |
 | status | [ImportStatus](#importstatus) |  | Yes |
+| warnings | [ [DslImportWarning](#dslimportwarning) ] |  | No |
 
 #### AppListQuery
 
@@ -17212,6 +17350,17 @@ Request payload for bulk downloading documents as a zip archive.
 | ---- | ---- | ----------- | -------- |
 | node_id | string | Node ID | Yes |
 
+#### DslImportWarning
+
+Portable DSL reference that could not be restored in the target workspace.
+
+| Name | Type | Description | Required |
+| ---- | ---- | ----------- | -------- |
+| code | string |  | Yes |
+| details | object |  | No |
+| message | string |  | Yes |
+| path | string |  | Yes |
+
 #### EducationActivatePayload
 
 | Name | Type | Description | Required |
@@ -18183,12 +18332,13 @@ How Dify forwards the end-user's identity to an MCP server.
 | ---- | ---- | ----------- | -------- |
 | app_id | string |  | No |
 | app_mode | string |  | No |
-| current_dsl_version | string, <br>**Default:** 0.6.0 |  | No |
+| current_dsl_version | string, <br>**Default:** 0.7.0 |  | No |
 | error | string |  | No |
 | id | string |  | Yes |
 | imported_dsl_version | string |  | No |
 | permission_keys | [ string ] |  | No |
 | status | [ImportStatus](#importstatus) |  | Yes |
+| warnings | [ [DslImportWarning](#dslimportwarning) ] |  | No |
 
 #### ImportStatus
 
@@ -19165,6 +19315,7 @@ Coarse node-level status used by Inspector to pick a banner.
 | ---- | ---- | ----------- | -------- |
 | invite_token | string | Optional invitation token | No |
 | language | string | Preferred interface language | No |
+| redirect_url | string | Relative page to resume after login | No |
 | timezone | string | Preferred timezone | No |
 
 #### OAuthProviderAccountResponse
@@ -21308,6 +21459,7 @@ Payload for importing snippet from DSL.
 | imported_dsl_version | string |  | Yes |
 | snippet_id | string |  | Yes |
 | status | [ImportStatus](#importstatus) |  | Yes |
+| warnings | [ [DslImportWarning](#dslimportwarning) ] |  | Yes |
 
 #### SnippetIterationNodeRunPayload
 
@@ -23430,6 +23582,7 @@ tenant's default model. The underlying generator never raises — an empty
 | predecessor_node_id | string |  | No |
 | process_data |  |  | No |
 | process_data_truncated | boolean |  | No |
+| retry_index | integer |  | No |
 | status | string |  | No |
 | title | string |  | No |
 
