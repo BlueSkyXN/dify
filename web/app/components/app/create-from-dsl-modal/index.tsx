@@ -32,6 +32,8 @@ import {
 import { useInvalidateAppList } from '@/service/use-apps'
 import { getRedirection } from '@/utils/app-redirection'
 import { trackCreateApp } from '@/utils/create-app-tracking'
+import { getDSLImportWarningDescription } from '@/utils/dsl-import-warning'
+import { resolveImportedAppRedirectionTarget } from '@/utils/imported-app-redirection'
 import Uploader from './uploader'
 
 type CreateFromDSLModalProps = {
@@ -119,7 +121,7 @@ const CreateFromDSLModal = ({ show, onSuccess, onClose, activeTab = CreateFromDS
 
       if (!response)
         return
-      const { id, status, app_id, app_mode, imported_dsl_version, current_dsl_version, permission_keys } = response
+      const { id, status, app_id, app_mode, imported_dsl_version, current_dsl_version, permission_keys, warnings } = response
       if (status === DSLImportStatus.COMPLETED || status === DSLImportStatus.COMPLETED_WITH_WARNINGS) {
         trackCreateApp({ source: 'studio_upload', appMode: app_mode })
 
@@ -131,14 +133,15 @@ const CreateFromDSLModal = ({ show, onSuccess, onClose, activeTab = CreateFromDS
         toast(t($ => $[status === DSLImportStatus.COMPLETED ? 'newApp.appCreated' : 'newApp.caution'], { ns: 'app' }), {
           type: status === DSLImportStatus.COMPLETED ? 'success' : 'warning',
           description: status === DSLImportStatus.COMPLETED_WITH_WARNINGS
-            ? t($ => $['newApp.appCreateDSLWarning'], { ns: 'app' })
+            ? getDSLImportWarningDescription(warnings) || t($ => $['newApp.appCreateDSLWarning'], { ns: 'app' })
             : undefined,
         })
         setNeedRefresh('1')
         invalidateAppList()
         if (app_id) {
           await handleCheckPluginDependencies(app_id)
-          getRedirection({ id: app_id, mode: app_mode, permission_keys }, push, {
+          const redirectionTarget = await resolveImportedAppRedirectionTarget({ id: app_id, mode: app_mode, permission_keys })
+          getRedirection(redirectionTarget, push, {
             currentUserId,
             resourceMaintainer: currentUserId,
             workspacePermissionKeys,
@@ -183,22 +186,28 @@ const CreateFromDSLModal = ({ show, onSuccess, onClose, activeTab = CreateFromDS
         import_id: importId,
       })
 
-      const { status, app_id, app_mode, permission_keys } = response
+      const { status, app_id, app_mode, permission_keys, warnings } = response
 
-      if (status === DSLImportStatus.COMPLETED) {
+      if (status === DSLImportStatus.COMPLETED || status === DSLImportStatus.COMPLETED_WITH_WARNINGS) {
         trackCreateApp({ source: 'studio_upload', appMode: app_mode })
         if (onSuccess)
           onSuccess()
         if (onClose)
           onClose()
 
-        toast.success(t($ => $['newApp.appCreated'], { ns: 'app' }))
+        toast(t($ => $[status === DSLImportStatus.COMPLETED ? 'newApp.appCreated' : 'newApp.caution'], { ns: 'app' }), {
+          type: status === DSLImportStatus.COMPLETED ? 'success' : 'warning',
+          description: status === DSLImportStatus.COMPLETED_WITH_WARNINGS
+            ? getDSLImportWarningDescription(warnings) || t($ => $['newApp.appCreateDSLWarning'], { ns: 'app' })
+            : undefined,
+        })
         if (app_id)
           await handleCheckPluginDependencies(app_id)
         setNeedRefresh('1')
         invalidateAppList()
         if (app_id) {
-          getRedirection({ id: app_id, mode: app_mode, permission_keys }, push, {
+          const redirectionTarget = await resolveImportedAppRedirectionTarget({ id: app_id, mode: app_mode, permission_keys })
+          getRedirection(redirectionTarget, push, {
             currentUserId,
             resourceMaintainer: currentUserId,
             workspacePermissionKeys,

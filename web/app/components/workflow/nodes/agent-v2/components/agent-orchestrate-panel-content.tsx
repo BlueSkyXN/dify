@@ -38,6 +38,7 @@ import {
 } from '@/features/agent-v2/agent-detail/configure/state'
 import { useAgentConfigureBuildDraftActions, useAgentConfigureBuildDraftData } from '@/features/agent-v2/agent-detail/configure/use-agent-configure-build-draft'
 import { consoleQuery } from '@/service/client'
+import { FlowType } from '@/types/common'
 import { useWorkflowInlineAgentConfigureSync } from '../agent-soul-config'
 
 type WorkflowRosterAgentOrchestratePanelContentProps = {
@@ -48,7 +49,8 @@ type WorkflowRosterAgentOrchestratePanelContentProps = {
 
 type WorkflowInlineAgentConfigureWorkspaceProps = {
   agentId?: string
-  appId?: string
+  flowId?: string
+  flowType?: FlowType
   inlineComposerState?: WorkflowAgentComposerResponse
   nodeId: string
   onClose?: () => void
@@ -237,8 +239,9 @@ function WorkflowInlineAgentConfigureWorkspaceContent({
   activeConfigSnapshot,
   agentId,
   agentSoulConfig,
-  appId,
   buildDraft,
+  flowId,
+  flowType,
   inlineComposerState,
   nodeId,
   onClose,
@@ -259,6 +262,7 @@ function WorkflowInlineAgentConfigureWorkspaceContent({
   const [clearPreviewChat, setClearPreviewChat] = useState(false)
   const [completedBuildConversationId, setCompletedBuildConversationId] = useState<string | null>(null)
   const [workflowRunId, setWorkflowRunId] = useState<string | null>(null)
+  const appId = flowType === FlowType.appFlow ? flowId : undefined
   const conversationIds = useAtomValue(agentConfigureConversationIdsAtom)
   const rightPanelChatMode = useAtomValue(agentConfigureRightPanelChatModeAtom)
   const workingDirectoryPanel = useAgentWorkingDirectoryPanel({
@@ -311,27 +315,51 @@ function WorkflowInlineAgentConfigureWorkspaceContent({
           }
         },
       )
-      if (!appId)
+      if (!flowId)
         return
 
-      queryClient.setQueryData<WorkflowAgentComposerResponse | undefined>(
-        consoleQuery.apps.byAppId.workflows.draft.nodes.byNodeId.agentComposer.get.queryKey({
-          input: {
-            params: {
-              app_id: appId,
-              node_id: nodeId,
+      if (flowType === FlowType.snippet) {
+        queryClient.setQueryData<WorkflowAgentComposerResponse | undefined>(
+          consoleQuery.snippets.bySnippetId.workflows.draft.nodes.byNodeId.agentComposer.get.queryKey({
+            input: {
+              params: {
+                snippet_id: flowId,
+                node_id: nodeId,
+              },
             },
-          },
-        }),
-        composerState => composerState
-          ? {
-              ...composerState,
-              debug_conversation_has_messages,
-              debug_conversation_id,
-              debug_conversation_message_count,
-            }
-          : composerState,
-      )
+          }),
+          composerState => composerState
+            ? {
+                ...composerState,
+                debug_conversation_has_messages,
+                debug_conversation_id,
+                debug_conversation_message_count,
+              }
+            : composerState,
+        )
+        return
+      }
+
+      if (flowType === FlowType.appFlow) {
+        queryClient.setQueryData<WorkflowAgentComposerResponse | undefined>(
+          consoleQuery.apps.byAppId.workflows.draft.nodes.byNodeId.agentComposer.get.queryKey({
+            input: {
+              params: {
+                app_id: flowId,
+                node_id: nodeId,
+              },
+            },
+          }),
+          composerState => composerState
+            ? {
+                ...composerState,
+                debug_conversation_has_messages,
+                debug_conversation_id,
+                debug_conversation_message_count,
+              }
+            : composerState,
+        )
+      }
     },
   }))
   const {

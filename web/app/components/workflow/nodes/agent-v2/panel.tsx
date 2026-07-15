@@ -1,4 +1,4 @@
-import type { AgentComposerBindingResponse, DeclaredOutputConfig } from '@dify/contracts/api/console/apps/types.gen'
+import type { AgentComposerBindingResponse, DeclaredOutputConfig, WorkflowAgentComposerResponse } from '@dify/contracts/api/console/apps/types.gen'
 import type { AgentRosterNodeData } from '../../block-selector/types'
 import type { NodePanelProps } from '../../types'
 import type { AgentV2NodeType } from './types'
@@ -15,8 +15,10 @@ import {
   replaceAgentOutputName,
 } from '@/app/components/base/prompt-editor/plugins/agent-output-block/utils'
 import { useNodeDataUpdate } from '@/app/components/workflow/hooks'
+import { useHooksStore } from '@/app/components/workflow/hooks-store'
 import { useStore } from '@/app/components/workflow/store'
 import { consoleQuery } from '@/service/client'
+import { FlowType } from '@/types/common'
 import useNodeCrud from '../_base/hooks/use-node-crud'
 import { AgentAdvancedSettings } from './components/agent-advanced-settings'
 import { WorkflowInlineAgentConfigureWorkspace, WorkflowRosterAgentOrchestratePanelContent } from './components/agent-orchestrate-panel-content'
@@ -111,28 +113,43 @@ export function AgentV2Panel({
   const { handleNodeDataUpdate, handleNodeDataUpdateWithSyncDraft } = useNodeDataUpdate()
   const openInlineAgentPanelNodeId = useStore(state => state.openInlineAgentPanelNodeId)
   const setOpenInlineAgentPanelNodeId = useStore(state => state.setOpenInlineAgentPanelNodeId)
-  const appId = useStore(state => state.appId)
+  const configsMap = useHooksStore(state => state.configsMap)
   const drawerPortalContainerRef = useRef<HTMLDivElement>(null)
   const [localDeclaredOutputs, setLocalDeclaredOutputs] = useState<DeclaredOutputConfig[] | null>(null)
   const declaredOutputs = localDeclaredOutputs ?? getAgentV2DeclaredOutputs(inputs)
   const rosterAgentId = inputs.agent_binding?.binding_type === 'roster_agent' ? inputs.agent_binding.agent_id : undefined
-  const inlineAgentId = inputs.agent_binding?.binding_type === 'inline_agent' ? inputs.agent_binding.agent_id : undefined
+  const sourceInlineAgentId = inputs.agent_binding?.binding_type === 'inline_agent' ? inputs.agent_binding.agent_id : undefined
   const isInlineAgentReady = hasValidInlineAgentBinding(inputs)
   const isInlineAgentPending = inputs.agent_binding?.binding_type === 'inline_agent' && !isInlineAgentReady
-  const isInlineAgentPanelOpen = (isInlineAgentReady || isInlineAgentPending) && openInlineAgentPanelNodeId === id
   const rosterAgentQuery = useAgentRosterDetail(rosterAgentId)
-  const inlineAgentQuery = useWorkflowInlineAgentDetail(id, inlineAgentId)
+  const inlineAgentQuery = useWorkflowInlineAgentDetail(id, sourceInlineAgentId, {
+    pollUntilReady: isInlineAgentReady,
+  })
   const { createInlineAgentBinding, isCreatingInlineAgent } = useCreateInlineAgentBinding()
   const inlineAgent = inlineAgentQuery.data?.agent
+  const inlineAgentBinding = inlineAgentQuery.data?.binding
+  const inlineAgentId = inlineAgentBinding?.binding_type === 'inline_agent' && inlineAgentBinding.agent_id
+    ? inlineAgentBinding.agent_id
+    : sourceInlineAgentId
+  const isInlineAgentCreated = isInlineAgentReady && !!inlineAgent
+  const isInlineAgentWaitingForCreation = isInlineAgentReady && !isInlineAgentCreated
+  const isInlineAgentPanelOpen = (isInlineAgentCreated || isInlineAgentPending) && openInlineAgentPanelNodeId === id
   const {
-    isPending: isCopyingFromRoster,
-    mutate: copyFromRoster,
+    isPending: isAppCopyingFromRoster,
+    mutate: copyFromRosterApp,
   } = useMutation(
     consoleQuery.apps.byAppId.workflows.draft.nodes.byNodeId.agentComposer.copyFromRoster.post.mutationOptions(),
   )
-  const isAgentPanelOpen = isInlineAgentReady || isInlineAgentPending ? isInlineAgentPanelOpen : isRosterAgentPanelOpen
-  const isInlineAgentLoading = isInlineAgentPending || (isInlineAgentReady && !inlineAgent)
-  const isAgentBindingPending = isInlineAgentPending || isCreatingInlineAgent
+  const {
+    isPending: isSnippetCopyingFromRoster,
+    mutate: copyFromRosterSnippet,
+  } = useMutation(
+    consoleQuery.snippets.bySnippetId.workflows.draft.nodes.byNodeId.agentComposer.copyFromRoster.post.mutationOptions(),
+  )
+  const isCopyingFromRoster = isAppCopyingFromRoster || isSnippetCopyingFromRoster
+  const isAgentPanelOpen = isInlineAgentCreated || isInlineAgentPending ? isInlineAgentPanelOpen : isRosterAgentPanelOpen
+  const isInlineAgentLoading = isInlineAgentPending || isInlineAgentWaitingForCreation
+  const isAgentBindingPending = isInlineAgentPending || isInlineAgentWaitingForCreation || isCreatingInlineAgent
   const canStartFromScratch = inputs.agent_binding?.binding_type !== 'inline_agent'
   const canSaveInlineToRoster = isInlineAgentReady && !!inlineAgent
   const inlineComposerStateForPanel = inlineAgentQuery.data
@@ -213,56 +230,70 @@ export function AgentV2Panel({
     )
   }, [handleNodeDataUpdateWithSyncDraft, id, inputs, setOpenInlineAgentPanelNodeId])
 
+  const handleRosterCopySuccess = useCallback((composerState: WorkflowAgentComposerResponse) => {
+    const binding = composerState.binding
+    if (
+      binding?.binding_type !== 'inline_agent'
+      || !binding.agent_id
+      || !binding.current_snapshot_id
+    ) {
+      return
+    }
+
+    setIsRosterAgentPanelOpen(false)
+    setIsInlineAgentPanelOpenedFromTrigger(true)
+    setOpenInlineAgentPanelNodeId(id)
+
+    const newInputs = produce(inputsRef.current, (draft) => {
+      delete (draft as AgentV2NodeType & { agent_roster?: unknown }).agent_roster
+      draft.agent_binding = {
+        binding_type: 'inline_agent',
+        agent_id: binding.agent_id,
+        current_snapshot_id: binding.current_snapshot_id,
+      }
+      draft._openInlineAgentPanel = true
+    })
+    inputsRef.current = newInputs
+    handleNodeDataUpdateWithSyncDraft(
+      {
+        id,
+        data: newInputs,
+      },
+      {
+        sync: true,
+        notRefreshWhenSyncError: true,
+      },
+    )
+  }, [handleNodeDataUpdateWithSyncDraft, id, setOpenInlineAgentPanelNodeId])
+
   const handleMakeRosterCopy = useCallback(() => {
-    if (!appId || !rosterAgentId || isCopyingFromRoster)
+    if (!configsMap?.flowId || !rosterAgentId || isCopyingFromRoster)
       return
 
-    copyFromRoster({
-      params: {
-        app_id: appId,
-        node_id: id,
-      },
-      body: {
-        source_agent_id: rosterAgentId,
-      },
-    }, {
-      onSuccess: (composerState) => {
-        const binding = composerState.binding
-        if (
-          binding?.binding_type !== 'inline_agent'
-          || !binding.agent_id
-          || !binding.current_snapshot_id
-        ) {
-          return
-        }
+    const body = { source_agent_id: rosterAgentId }
+    const options = { onSuccess: handleRosterCopySuccess }
 
-        setIsRosterAgentPanelOpen(false)
-        setIsInlineAgentPanelOpenedFromTrigger(true)
-        setOpenInlineAgentPanelNodeId(id)
+    if (configsMap.flowType === FlowType.snippet) {
+      copyFromRosterSnippet({
+        params: {
+          snippet_id: configsMap.flowId,
+          node_id: id,
+        },
+        body,
+      }, options)
+      return
+    }
 
-        const newInputs = produce(inputsRef.current, (draft) => {
-          delete (draft as AgentV2NodeType & { agent_roster?: unknown }).agent_roster
-          draft.agent_binding = {
-            binding_type: 'inline_agent',
-            agent_id: binding.agent_id,
-            current_snapshot_id: binding.current_snapshot_id,
-          }
-          draft._openInlineAgentPanel = true
-        })
-        inputsRef.current = newInputs
-        handleNodeDataUpdateWithSyncDraft(
-          {
-            id,
-            data: newInputs,
-          },
-          {
-            sync: true,
-            notRefreshWhenSyncError: true,
-          },
-        )
-      },
-    })
-  }, [appId, copyFromRoster, handleNodeDataUpdateWithSyncDraft, id, isCopyingFromRoster, rosterAgentId, setOpenInlineAgentPanelNodeId])
+    if (configsMap.flowType === FlowType.appFlow) {
+      copyFromRosterApp({
+        params: {
+          app_id: configsMap.flowId,
+          node_id: id,
+        },
+        body,
+      }, options)
+    }
+  }, [configsMap?.flowId, configsMap?.flowType, copyFromRosterApp, copyFromRosterSnippet, handleRosterCopySuccess, id, isCopyingFromRoster, rosterAgentId])
 
   const handleSaveInlineToRosterOpen = useCallback(() => {
     setSaveToRosterSessionKey(key => key + 1)
@@ -382,6 +413,9 @@ export function AgentV2Panel({
   }, [createInlineAgentBinding, handleInlineAgentBindingCreated, handleNodeDataUpdateWithSyncDraft, id, setOpenInlineAgentPanelNodeId])
 
   const handleAgentPanelOpenChange = useCallback((open: boolean) => {
+    if (open && isInlineAgentWaitingForCreation)
+      return
+
     if (isInlineAgentReady || isInlineAgentPending) {
       if (open)
         setIsInlineAgentPanelOpenedFromTrigger(true)
@@ -399,7 +433,7 @@ export function AgentV2Panel({
     }
 
     setIsRosterAgentPanelOpen(open)
-  }, [createInlineAgentBinding, handleInlineAgentBindingCreated, id, inlineAgentQuery, isCreatingInlineAgent, isInlineAgentPending, isInlineAgentReady, setOpenInlineAgentPanelNodeId])
+  }, [createInlineAgentBinding, handleInlineAgentBindingCreated, id, inlineAgentQuery, isCreatingInlineAgent, isInlineAgentPending, isInlineAgentReady, isInlineAgentWaitingForCreation, setOpenInlineAgentPanelNodeId])
 
   const handleDeclaredOutputsChange = useCallback((outputs: ReturnType<typeof getAgentV2DeclaredOutputs>, agentTask?: string) => {
     setIsOutputVariablesCollapsed(false)
@@ -490,9 +524,9 @@ export function AgentV2Panel({
       />
       <div className="border-b border-divider-subtle">
         <AgentRosterField
-          agent={displayedAgent}
+          agent={isInlineAgentWaitingForCreation ? undefined : displayedAgent}
           agentId={rosterAgentId ?? inlineAgentId ?? (isInlineAgentPending ? id : undefined)}
-          canOpenPanel
+          canOpenPanel={!isInlineAgentWaitingForCreation}
           isInlineSetup={isInlineAgentReady || isInlineAgentPending}
           isLoading={isInlineAgentLoading}
           isPanelCopyPending={isCopyingFromRoster}
@@ -504,7 +538,8 @@ export function AgentV2Panel({
                   ? (
                       <WorkflowInlineAgentConfigureWorkspace
                         agentId={inlineAgentId ?? undefined}
-                        appId={appId}
+                        flowId={configsMap?.flowId}
+                        flowType={configsMap?.flowType}
                         inlineComposerState={inlineComposerStateForPanel}
                         nodeId={id}
                         onClose={() => handleAgentPanelOpenChange(false)}
@@ -533,7 +568,8 @@ export function AgentV2Panel({
         />
         <SaveInlineAgentToRosterDialog
           key={saveToRosterSessionKey}
-          appId={appId}
+          flowId={configsMap?.flowId}
+          flowType={configsMap?.flowType}
           formKey={saveToRosterSessionKey}
           initialAgent={inlineAgent}
           nodeId={id}

@@ -25,6 +25,7 @@ import {
 } from '@/service/apps'
 import { useInvalidateAppList } from '@/service/use-apps'
 import { getRedirection } from '@/utils/app-redirection'
+import { resolveImportedAppRedirectionTarget } from '@/utils/imported-app-redirection'
 
 type DSLPayload = {
   mode: DSLImportMode
@@ -100,7 +101,8 @@ export const useImportDSL = () => {
         setNeedRefresh('1')
         invalidateAppList()
         await handleCheckPluginDependencies(app_id)
-        getRedirection({ id: app_id, mode: app_mode, permission_keys }, push, {
+        const redirectionTarget = await resolveImportedAppRedirectionTarget({ id: app_id, mode: app_mode, permission_keys })
+        getRedirection(redirectionTarget, push, {
           currentUserId,
           resourceMaintainer: currentUserId,
           workspacePermissionKeys,
@@ -156,7 +158,8 @@ export const useImportDSL = () => {
         await handleCheckPluginDependencies(app_id)
         setNeedRefresh('1')
         invalidateAppList()
-        getRedirection({ id: app_id, mode: app_mode, permission_keys }, push, {
+        const redirectionTarget = await resolveImportedAppRedirectionTarget({ id: app_id, mode: app_mode, permission_keys })
+        getRedirection(redirectionTarget, push, {
           currentUserId,
           resourceMaintainer: currentUserId,
           workspacePermissionKeys,
