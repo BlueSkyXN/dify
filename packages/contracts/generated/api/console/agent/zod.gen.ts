@@ -1513,6 +1513,7 @@ export const zAgentStatisticSummaryEnvelopeResponse = z.object({
  */
 export const zAgentConfigRevisionOperation = z.enum([
   'create_version',
+  'import_package',
   'publish_draft',
   'restore_version',
   'save_current_version',
