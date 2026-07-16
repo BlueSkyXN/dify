@@ -301,10 +301,10 @@ class AgentObservabilityService:
     def _list_workflow_conversation_logs(
         self, *, app: App, agent_id: str, params: AgentLogQueryParams, source_filter: AgentSourceFilter
     ) -> list[dict[str, Any]]:
+        """List one workflow conversation row per app unless an exact legacy source was requested."""
         workflow_app = aliased(App)
         is_app_source = (
-            source_filter.kind == "workflow"
-            and source_filter.app_id is not None
+            source_filter.kind in {"all", "workflow"}
             and source_filter.workflow_id is None
             and source_filter.workflow_version is None
             and source_filter.node_id is None
