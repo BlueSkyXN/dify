@@ -221,7 +221,8 @@ def test_list_workflow_sources_deduplicates_versions_and_nodes_by_app() -> None:
     assert [source["id"] for source in sources] == ["workflow:app-a", "workflow:app-b"]
 
 
-def test_list_workflow_conversation_logs_aggregates_app_level_source() -> None:
+@pytest.mark.parametrize("source", [None, "workflow", "workflow:app-a"])
+def test_list_workflow_conversation_logs_aggregates_non_exact_sources(source: str | None) -> None:
     conversation = SimpleNamespace(
         id="conversation-1",
         name="Conversation",
@@ -261,12 +262,13 @@ def test_list_workflow_conversation_logs_aggregates_app_level_source() -> None:
 
     session = FakeSession()
     service = AgentObservabilityService(session)
-    source_filter = AgentObservabilityService.resolve_source_filter("workflow:app-a")
+    source_filter = AgentObservabilityService.resolve_source_filter(source)
+    sources = () if source is None else (source,)
 
     logs = service._list_workflow_conversation_logs(
         app=SimpleNamespace(tenant_id="tenant-1"),  # type: ignore[arg-type]
         agent_id="agent-1",
-        params=AgentLogQueryParams(sources=("workflow:app-a",)),
+        params=AgentLogQueryParams(sources=sources),
         source_filter=source_filter,
     )
 
