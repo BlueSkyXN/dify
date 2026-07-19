@@ -413,22 +413,14 @@ def _serialize_agent_usage(usage: object | None) -> AgentRunUsage | None:
     """Convert pydantic-ai request usage into the public Agent run usage shape."""
     if usage is None:
         return None
-    input_tokens = _token_count(usage.input_tokens) if isinstance(usage, _HasInputTokens) else 0
-    output_tokens = _token_count(usage.output_tokens) if isinstance(usage, _HasOutputTokens) else 0
-    total_tokens = _token_count(usage.total_tokens) if isinstance(usage, _HasTotalTokens) else 0
+    input_tokens = int(usage.input_tokens or 0) if isinstance(usage, _HasInputTokens) else 0
+    output_tokens = int(usage.output_tokens or 0) if isinstance(usage, _HasOutputTokens) else 0
+    total_tokens = int(usage.total_tokens or 0) if isinstance(usage, _HasTotalTokens) else 0
     return AgentRunUsage(
         prompt_tokens=input_tokens,
         completion_tokens=output_tokens,
         total_tokens=total_tokens,
     )
-
-
-def _token_count(value: object) -> int:
-    if isinstance(value, bool):
-        return int(value)
-    if isinstance(value, int | float | str):
-        return int(value or 0)
-    return 0
 
 
 def _resolve_agent_output_type(output_type: OutputSpec[object], allow_deferred_tools: bool) -> OutputSpec[object]:

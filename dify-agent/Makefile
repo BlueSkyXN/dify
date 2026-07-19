@@ -30,10 +30,10 @@ fix:
 	@uv --directory "$(PROJECT_DIR)" run --project . python -m ruff check --fix .
 
 typecheck:
-	@uv --directory "$(PROJECT_DIR)" run --project . --extra server --extra grpc --extra shellctl-server basedpyright --level error src examples tests
+	@uv --directory "$(PROJECT_DIR)" run --project . basedpyright --level error src examples tests
 
 test:
-	@uv --directory "$(PROJECT_DIR)" run --project . --extra server --extra shellctl-server python -m pytest tests
+	@uv --directory "$(PROJECT_DIR)" run --project . --extra server python -m pytest tests
 
 update-examples:
 	@uv --directory "$(PROJECT_DIR)" run --project . python -m pytest --update-examples tests/docs/test_examples.py

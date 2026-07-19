@@ -121,7 +121,7 @@ class DifyApiAgentStubFileRequestHandler:
                 success payload does not contain a non-empty ``url`` string.
         """
         execution_context = self._require_user_context(principal.execution_context)
-        payload: dict[str, Any] = {
+        payload = {
             "tenant_id": execution_context.tenant_id,
             "user_id": execution_context.user_id,
             "filename": request.filename,
@@ -154,7 +154,7 @@ class DifyApiAgentStubFileRequestHandler:
                 not match ``AgentStubFileDownloadResponse``.
         """
         execution_context = self._require_user_context(principal.execution_context)
-        payload: dict[str, Any] = {
+        payload = {
             "tenant_id": execution_context.tenant_id,
             "user_id": execution_context.user_id,
             "user_from": execution_context.user_from,

@@ -1,4 +1,3 @@
-# pyright: reportAttributeAccessIssue=false
 import asyncio
 import sys
 import types

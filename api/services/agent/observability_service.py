@@ -302,6 +302,7 @@ class AgentObservabilityService:
         self, *, app: App, agent_id: str, params: AgentLogQueryParams, source_filter: AgentSourceFilter
     ) -> list[dict[str, Any]]:
         workflow_app = aliased(App)
+        # App-level sources collapse workflow/version/node dimensions so each conversation is returned once.
         is_app_source = (
             source_filter.kind == "workflow"
             and source_filter.app_id is not None

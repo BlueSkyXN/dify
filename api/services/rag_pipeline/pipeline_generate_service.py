@@ -46,6 +46,7 @@ class PipelineGenerateService:
                 cls.update_document_status(document_ref, session=session)
             return PipelineGenerator.convert_to_event_stream(
                 PipelineGenerator().generate(
+                    session=session,
                     pipeline=pipeline,
                     workflow=workflow,
                     user=user,
@@ -75,7 +76,13 @@ class PipelineGenerateService:
         workflow = cls._get_workflow(pipeline, InvokeFrom.DEBUGGER, session)
         return PipelineGenerator.convert_to_event_stream(
             PipelineGenerator().single_iteration_generate(
-                pipeline=pipeline, workflow=workflow, node_id=node_id, user=user, args=args, streaming=streaming
+                pipeline=pipeline,
+                workflow=workflow,
+                node_id=node_id,
+                user=user,
+                args=args,
+                streaming=streaming,
+                session=session,
             )
         )
 
@@ -86,7 +93,13 @@ class PipelineGenerateService:
         workflow = cls._get_workflow(pipeline, InvokeFrom.DEBUGGER, session)
         return PipelineGenerator.convert_to_event_stream(
             PipelineGenerator().single_loop_generate(
-                pipeline=pipeline, workflow=workflow, node_id=node_id, user=user, args=args, streaming=streaming
+                pipeline=pipeline,
+                workflow=workflow,
+                node_id=node_id,
+                user=user,
+                args=args,
+                streaming=streaming,
+                session=session,
             )
         )
 

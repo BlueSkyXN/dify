@@ -27,11 +27,13 @@ describe('WorkflowProcessItem', () => {
   it('should render workflow error message as collapsed title when failed without tracing', () => {
     render(
       <WorkflowProcessItem
-        data={{
-          status: WorkflowRunningStatus.Failed,
-          tracing: [],
-          error: 'Invalid upload file',
-        } as WorkflowProcess}
+        data={
+          {
+            status: WorkflowRunningStatus.Failed,
+            tracing: [],
+            error: 'Invalid upload file',
+          } as WorkflowProcess
+        }
         expand={false}
       />,
     )
@@ -39,70 +41,78 @@ describe('WorkflowProcessItem', () => {
     expect(screen.getByRole('button', { name: /Invalid upload file/ })).toBeInTheDocument()
   })
 
-  it('should keep collapsed title compact when failed with tracing and workflow error', () => {
+  it('should keep the collapsed title compact when tracing exists', () => {
     render(
       <WorkflowProcessItem
-        data={{
-          status: WorkflowRunningStatus.Failed,
-          tracing: [
-            { id: '1', title: 'Start' },
-            { id: '2', title: 'LLM' },
-          ],
-          error: 'Provider returned HTTP 500 with a very long error payload',
-        } as WorkflowProcess}
+        data={
+          {
+            status: WorkflowRunningStatus.Failed,
+            tracing: [
+              { id: '1', title: 'Start' },
+              { id: '2', title: 'LLM' },
+            ],
+            error: 'Provider returned HTTP 500 with a very long error payload',
+          } as WorkflowProcess
+        }
         expand={false}
       />,
     )
 
-    expect(screen.getByTestId('workflow-process-title')).toHaveTextContent('LLM')
-    expect(screen.getByTestId('workflow-process-title')).not.toHaveTextContent('Provider returned HTTP 500')
+    expect(screen.getByRole('button', { name: /LLM/ })).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /Provider returned HTTP 500/ }),
+    ).not.toBeInTheDocument()
   })
 
-  it('should prefer latest node error over title in collapsed summary when tracing exists', () => {
+  it('should prefer the latest node error in the collapsed title', () => {
     render(
       <WorkflowProcessItem
-        data={{
-          status: WorkflowRunningStatus.Failed,
-          tracing: [
-            { id: '1', title: 'LLM', error: 'Rate limit exceeded' },
-          ],
-          error: 'Workflow failed',
-        } as WorkflowProcess}
+        data={
+          {
+            status: WorkflowRunningStatus.Failed,
+            tracing: [{ id: '1', title: 'LLM', error: 'Rate limit exceeded' }],
+            error: 'Workflow failed',
+          } as WorkflowProcess
+        }
         expand={false}
       />,
     )
 
-    expect(screen.getByTestId('workflow-process-title')).toHaveTextContent('Rate limit exceeded')
+    expect(screen.getByRole('button', { name: /Rate limit exceeded/ })).toBeInTheDocument()
   })
 
-  it('should show workflow error in expanded panel when tracing exists', () => {
+  it('should preserve the full workflow error when expanded with tracing', () => {
     render(
       <WorkflowProcessItem
-        data={{
-          status: WorkflowRunningStatus.Failed,
-          tracing: [{ id: '1', title: 'LLM' }],
-          error: 'Invalid upload file',
-        } as WorkflowProcess}
+        data={
+          {
+            status: WorkflowRunningStatus.Failed,
+            tracing: [{ id: '1', title: 'LLM' }],
+            error: 'Invalid upload file',
+          } as WorkflowProcess
+        }
         expand={true}
       />,
     )
 
-    expect(screen.getByTestId('workflow-process-error')).toHaveTextContent('Invalid upload file')
+    expect(screen.getByRole('alert')).toHaveTextContent('Invalid upload file')
   })
 
-  it('should preserve multiline workflow errors in expanded panel', () => {
+  it('should preserve multiline workflow errors when expanded', () => {
     render(
       <WorkflowProcessItem
-        data={{
-          status: WorkflowRunningStatus.Failed,
-          tracing: [{ id: '1', title: 'LLM' }],
-          error: 'line one\nline two',
-        } as WorkflowProcess}
+        data={
+          {
+            status: WorkflowRunningStatus.Failed,
+            tracing: [{ id: '1', title: 'LLM' }],
+            error: 'line one\nline two',
+          } as WorkflowProcess
+        }
         expand={true}
       />,
     )
 
-    const errorPanel = screen.getByTestId('workflow-process-error')
+    const errorPanel = screen.getByRole('alert')
     expect(errorPanel).toHaveTextContent('line one')
     expect(errorPanel).toHaveTextContent('line two')
     expect(errorPanel).toHaveClass('break-words', 'whitespace-pre-wrap')
@@ -118,11 +128,13 @@ describe('WorkflowProcessItem', () => {
   it('should render workflow error message when failed without node tracing details', () => {
     render(
       <WorkflowProcessItem
-        data={{
-          status: WorkflowRunningStatus.Failed,
-          tracing: [],
-          error: 'Invalid upload file',
-        } as WorkflowProcess}
+        data={
+          {
+            status: WorkflowRunningStatus.Failed,
+            tracing: [],
+            error: 'Invalid upload file',
+          } as WorkflowProcess
+        }
         expand={true}
       />,
     )
@@ -148,60 +160,118 @@ describe('WorkflowProcessItem', () => {
   })
 
   it('should render nothing if readonly is true', () => {
-    const { container } = render(<WorkflowProcessItem data={mockData as WorkflowProcess} readonly={true} />)
+    const { container } = render(
+      <WorkflowProcessItem data={mockData as WorkflowProcess} readonly={true} />,
+    )
     expect(container.firstChild).toBeNull()
   })
 
   describe('Status Icons', () => {
     it('should show running spinner when status is Running', () => {
-      render(<WorkflowProcessItem data={{ ...mockData, status: WorkflowRunningStatus.Running } as WorkflowProcess} />)
+      render(
+        <WorkflowProcessItem
+          data={{ ...mockData, status: WorkflowRunningStatus.Running } as WorkflowProcess}
+        />,
+      )
       expect(screen.getByRole('img', { name: /workflowProcessRunning/ })).toBeInTheDocument()
     })
 
     it('should show success circle when status is Succeeded', () => {
-      render(<WorkflowProcessItem data={{ ...mockData, status: WorkflowRunningStatus.Succeeded } as WorkflowProcess} />)
+      render(
+        <WorkflowProcessItem
+          data={{ ...mockData, status: WorkflowRunningStatus.Succeeded } as WorkflowProcess}
+        />,
+      )
       expect(screen.getByRole('img', { name: /workflowProcessSucceeded/ })).toBeInTheDocument()
     })
 
     it('should show error warning when status is Failed', () => {
-      render(<WorkflowProcessItem data={{ ...mockData, status: WorkflowRunningStatus.Failed } as WorkflowProcess} />)
+      render(
+        <WorkflowProcessItem
+          data={{ ...mockData, status: WorkflowRunningStatus.Failed } as WorkflowProcess}
+        />,
+      )
       expect(screen.getByRole('img', { name: /workflowProcessFailed/ })).toBeInTheDocument()
     })
 
     it('should show error warning when status is Stopped', () => {
-      render(<WorkflowProcessItem data={{ ...mockData, status: WorkflowRunningStatus.Stopped } as WorkflowProcess} />)
+      render(
+        <WorkflowProcessItem
+          data={{ ...mockData, status: WorkflowRunningStatus.Stopped } as WorkflowProcess}
+        />,
+      )
       expect(screen.getByRole('img', { name: /workflowProcessFailed/ })).toBeInTheDocument()
     })
 
     it('should show pause circle when status is Paused', () => {
-      render(<WorkflowProcessItem data={{ ...mockData, status: WorkflowRunningStatus.Paused } as WorkflowProcess} />)
+      render(
+        <WorkflowProcessItem
+          data={{ ...mockData, status: WorkflowRunningStatus.Paused } as WorkflowProcess}
+        />,
+      )
       expect(screen.getByRole('img', { name: /workflowProcessPaused/ })).toBeInTheDocument()
     })
   })
 
   describe('Background Colors', () => {
     it('should apply correct background when collapsed for different statuses', () => {
-      const { rerender } = render(<WorkflowProcessItem data={{ ...mockData, status: WorkflowRunningStatus.Succeeded } as WorkflowProcess} />)
+      const { rerender } = render(
+        <WorkflowProcessItem
+          data={{ ...mockData, status: WorkflowRunningStatus.Succeeded } as WorkflowProcess}
+        />,
+      )
       expect(screen.getByTestId('workflow-process-item')).toHaveClass('bg-workflow-process-bg')
 
-      rerender(<WorkflowProcessItem data={{ ...mockData, status: WorkflowRunningStatus.Paused } as WorkflowProcess} />)
-      expect(screen.getByTestId('workflow-process-item')).toHaveClass('bg-workflow-process-paused-bg')
+      rerender(
+        <WorkflowProcessItem
+          data={{ ...mockData, status: WorkflowRunningStatus.Paused } as WorkflowProcess}
+        />,
+      )
+      expect(screen.getByTestId('workflow-process-item')).toHaveClass(
+        'bg-workflow-process-paused-bg',
+      )
 
-      rerender(<WorkflowProcessItem data={{ ...mockData, status: WorkflowRunningStatus.Failed } as WorkflowProcess} />)
-      expect(screen.getByTestId('workflow-process-item')).toHaveClass('bg-[var(--color-workflow-process-failed-bg)]')
+      rerender(
+        <WorkflowProcessItem
+          data={{ ...mockData, status: WorkflowRunningStatus.Failed } as WorkflowProcess}
+        />,
+      )
+      expect(screen.getByTestId('workflow-process-item')).toHaveClass(
+        'bg-[var(--color-workflow-process-failed-bg)]',
+      )
     })
 
     it('should apply correct background when expanded for different statuses', () => {
-      const { rerender } = render(<WorkflowProcessItem data={{ ...mockData, status: WorkflowRunningStatus.Running } as WorkflowProcess} expand={true} />)
+      const { rerender } = render(
+        <WorkflowProcessItem
+          data={{ ...mockData, status: WorkflowRunningStatus.Running } as WorkflowProcess}
+          expand={true}
+        />,
+      )
       expect(screen.getByTestId('workflow-process-item')).toHaveClass('bg-background-section-burn')
 
-      rerender(<WorkflowProcessItem data={{ ...mockData, status: WorkflowRunningStatus.Succeeded } as WorkflowProcess} expand={true} />)
+      rerender(
+        <WorkflowProcessItem
+          data={{ ...mockData, status: WorkflowRunningStatus.Succeeded } as WorkflowProcess}
+          expand={true}
+        />,
+      )
       expect(screen.getByTestId('workflow-process-item')).toHaveClass('bg-state-success-hover')
 
-      rerender(<WorkflowProcessItem data={{ ...mockData, status: WorkflowRunningStatus.Failed } as WorkflowProcess} expand={true} />)
+      rerender(
+        <WorkflowProcessItem
+          data={{ ...mockData, status: WorkflowRunningStatus.Failed } as WorkflowProcess}
+          expand={true}
+        />,
+      )
       expect(screen.getByTestId('workflow-process-item')).toHaveClass('bg-state-destructive-hover')
 
-      rerender(<WorkflowProcessItem data={{ ...mockData, status: WorkflowRunningStatus.Paused } as WorkflowProcess} expand={true} />)
+      rerender(
+        <WorkflowProcessItem
+          data={{ ...mockData, status: WorkflowRunningStatus.Paused } as WorkflowProcess}
+          expand={true}
+        />,
+      )
       expect(screen.getByTestId('workflow-process-item')).toHaveClass('bg-state-warning-hover')
     })
   })

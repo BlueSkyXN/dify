@@ -107,19 +107,13 @@ class DifyCoreToolsClient:
         tool_parameters: dict[str, JsonValue],
     ) -> DifyCoreToolsInvokeResponse:
         _validate_execution_context(execution_context)
-        user_id = execution_context.user_id
-        user_from = execution_context.user_from
-        app_id = execution_context.app_id
-        assert user_id is not None
-        assert user_from is not None
-        assert app_id is not None
 
         request_payload = _DifyCoreToolsInvokeRequest(
             caller=_DifyCoreToolsCaller(
                 tenant_id=execution_context.tenant_id,
-                user_id=user_id,
-                user_from=user_from,
-                app_id=app_id,
+                user_id=execution_context.user_id,
+                user_from=execution_context.user_from,
+                app_id=execution_context.app_id,
                 invoke_from=execution_context.invoke_from,
                 conversation_id=execution_context.conversation_id,
                 workflow_id=execution_context.workflow_id,
