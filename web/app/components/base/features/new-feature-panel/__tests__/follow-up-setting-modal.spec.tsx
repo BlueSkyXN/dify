@@ -16,50 +16,47 @@ vi.mock('@/app/components/header/account-setting/model-provider-page/hooks', () 
   }),
 }))
 
-vi.mock('@/app/components/header/account-setting/model-provider-page/model-parameter-modal', () => ({
-  default: ({
-    provider,
-    modelId,
-    completionParams,
-    onCompletionParamsChange,
-  }: {
-    provider: string
-    modelId: string
-    completionParams: FormValue
-    onCompletionParamsChange: (newParams: FormValue) => void
-  }) => {
-    const hasMaxTokens = 'max_tokens' in completionParams
+vi.mock(
+  '@/app/components/header/account-setting/model-provider-page/model-parameter-modal',
+  () => ({
+    default: ({
+      provider,
+      modelId,
+      completionParams,
+      onCompletionParamsChange,
+    }: {
+      provider: string
+      modelId: string
+      completionParams: FormValue
+      onCompletionParamsChange: (newParams: FormValue) => void
+    }) => {
+      const hasMaxTokens = 'max_tokens' in completionParams
 
-    return (
-      <div data-testid="model-parameter-modal">
-        {`${provider}:${modelId}`}
-        <button
-          type="button"
-          role="switch"
-          aria-checked={hasMaxTokens}
-          onClick={() => {
-            const { max_tokens: _maxTokens, ...remainingParams } = completionParams
-            onCompletionParamsChange(remainingParams)
-          }}
-        >
-          Max Tokens
-        </button>
-      </div>
-    )
-  },
-}))
+      return (
+        <div data-testid="model-parameter-modal">
+          {`${provider}:${modelId}`}
+          <button
+            type="button"
+            role="switch"
+            aria-checked={hasMaxTokens}
+            onClick={() => {
+              const { max_tokens: _maxTokens, ...remainingParams } = completionParams
+              onCompletionParamsChange(remainingParams)
+            }}
+          >
+            Max Tokens
+          </button>
+        </div>
+      )
+    },
+  }),
+)
 
 const renderModal = (data: SuggestedQuestionsAfterAnswer = { enabled: true }) => {
   const onSave = vi.fn()
   const onCancel = vi.fn()
 
-  render(
-    <FollowUpSettingModal
-      data={data}
-      onSave={onSave}
-      onCancel={onCancel}
-    />,
-  )
+  render(<FollowUpSettingModal data={data} onSave={onSave} onCancel={onCancel} />)
 
   return {
     onSave,
@@ -125,18 +122,28 @@ describe('FollowUpSettingModal', () => {
       const user = userEvent.setup()
       const { onSave } = renderModal()
 
-      expect(screen.getByText('appDebug.feature.suggestedQuestionsAfterAnswer.modal.defaultPromptOption')).toBeInTheDocument()
-      expect(screen.getByText(/Please predict the three most likely follow-up questions a user would ask/)).toBeInTheDocument()
+      expect(
+        screen.getByText(
+          'appDebug.feature.suggestedQuestionsAfterAnswer.modal.defaultPromptOption',
+        ),
+      ).toBeInTheDocument()
+      expect(
+        screen.getByText(
+          /Please predict the three most likely follow-up questions a user would ask/,
+        ),
+      ).toBeInTheDocument()
 
       await user.click(screen.getByText(/common\.operation\.save/))
 
-      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
-        prompt: undefined,
-        model: expect.objectContaining({
-          provider: 'openai',
-          name: 'gpt-4o-mini',
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          prompt: undefined,
+          model: expect.objectContaining({
+            provider: 'openai',
+            name: 'gpt-4o-mini',
+          }),
         }),
-      }))
+      )
     })
   })
 
@@ -145,28 +152,37 @@ describe('FollowUpSettingModal', () => {
       const user = userEvent.setup()
       const { onSave } = renderModal()
 
-      await user.click(screen.getByText('appDebug.feature.suggestedQuestionsAfterAnswer.modal.customPromptOption').closest('button')!)
+      await user.click(
+        screen
+          .getByText('appDebug.feature.suggestedQuestionsAfterAnswer.modal.customPromptOption')
+          .closest('button')!,
+      )
 
-      const textarea = screen.getByPlaceholderText('appDebug.feature.suggestedQuestionsAfterAnswer.modal.promptPlaceholder')
+      const textarea = screen.getByPlaceholderText(
+        'appDebug.feature.suggestedQuestionsAfterAnswer.modal.promptPlaceholder',
+      )
       expect(textarea).toHaveAttribute('maxLength', '1000')
 
-      fireEvent.change(
-        textarea,
-        { target: { value: 'Use a custom follow-up prompt.' } },
-      )
+      fireEvent.change(textarea, { target: { value: 'Use a custom follow-up prompt.' } })
 
       await user.click(screen.getByText(/common\.operation\.save/))
 
-      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
-        prompt: 'Use a custom follow-up prompt.',
-      }))
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          prompt: 'Use a custom follow-up prompt.',
+        }),
+      )
     })
 
     it('should disable save when custom prompt is selected but empty', async () => {
       const user = userEvent.setup()
       renderModal()
 
-      await user.click(screen.getByText('appDebug.feature.suggestedQuestionsAfterAnswer.modal.customPromptOption').closest('button')!)
+      await user.click(
+        screen
+          .getByText('appDebug.feature.suggestedQuestionsAfterAnswer.modal.customPromptOption')
+          .closest('button')!,
+      )
 
       expect(screen.getByText(/common\.operation\.save/).closest('button')).toBeDisabled()
     })

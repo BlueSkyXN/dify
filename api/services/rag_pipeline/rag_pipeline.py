@@ -112,6 +112,12 @@ class RagPipelineService:
         )
         self._workflow_run_repo = DifyAPIRepositoryFactory.create_api_workflow_run_repository(session_maker)
 
+    @staticmethod
+    def get_pipeline_by_id(pipeline_id: str, tenant_id: str, *, session: Session) -> Pipeline | None:
+        return session.scalar(
+            select(Pipeline).where(Pipeline.id == pipeline_id, Pipeline.tenant_id == tenant_id).limit(1)
+        )
+
     @classmethod
     def get_pipeline_templates(
         cls,
@@ -580,6 +586,7 @@ class RagPipelineService:
 
         repository = DifyCoreRepositoryFactory.create_workflow_node_execution_repository(
             session_factory=db.engine,
+            tenant_id=pipeline.tenant_id,
             user=account,
             app_id=pipeline.id,
             triggered_from=WorkflowNodeExecutionTriggeredFrom.SINGLE_STEP,
@@ -1371,6 +1378,7 @@ class RagPipelineService:
         # Create repository and save the node execution
         repository = SQLAlchemyWorkflowNodeExecutionRepository(
             session_factory=db.engine,
+            tenant_id=pipeline.tenant_id,
             user=current_user,
             app_id=pipeline.id,
             triggered_from=WorkflowNodeExecutionTriggeredFrom.SINGLE_STEP,
@@ -1468,6 +1476,7 @@ class RagPipelineService:
         if not workflow:
             raise ValueError("Workflow not found")
         PipelineGenerator().generate(
+            session=self._session,
             pipeline=pipeline,
             workflow=workflow,
             user=user,

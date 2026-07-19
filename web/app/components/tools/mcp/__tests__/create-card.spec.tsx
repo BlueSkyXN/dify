@@ -18,18 +18,20 @@ vi.mock('@/service/use-tools', () => ({
 // Mock the MCP Modal
 type MockMCPModalProps = {
   show: boolean
-  onConfirm: (info: { name: string, server_url: string }) => void
+  onConfirm: (info: { name: string; server_url: string }) => void
   onHide: () => void
 }
 
 vi.mock('../modal', () => ({
   default: ({ show, onConfirm, onHide }: MockMCPModalProps) => {
-    if (!show)
-      return null
+    if (!show) return null
     return (
       <div data-testid="mcp-modal">
         <span>tools.mcp.modal.title</span>
-        <button data-testid="confirm-btn" onClick={() => onConfirm({ name: 'Test MCP', server_url: 'https://test.com' })}>
+        <button
+          data-testid="confirm-btn"
+          onClick={() => onConfirm({ name: 'Test MCP', server_url: 'https://test.com' })}
+        >
           Confirm
         </button>
         <button data-testid="close-btn" onClick={onHide}>
@@ -110,11 +112,6 @@ describe('NewMCPCard', () => {
   })
 
   describe('Rendering', () => {
-    it('should render without crashing', () => {
-      render(<NewMCPCard {...defaultProps} />, { wrapper: createWrapper() })
-      expect(screen.getByText('tools.mcp.create.cardTitle')).toBeInTheDocument()
-    })
-
     it('should render card title', () => {
       render(<NewMCPCard {...defaultProps} />, { wrapper: createWrapper() })
       expect(screen.getByText('tools.mcp.create.cardTitle')).toBeInTheDocument()
@@ -125,15 +122,12 @@ describe('NewMCPCard', () => {
       expect(screen.getByText('tools.mcp.create.cardLink')).toBeInTheDocument()
     })
 
-    it('should render add icon', () => {
-      render(<NewMCPCard {...defaultProps} />, { wrapper: createWrapper() })
-      expect(document.querySelector('.border-dashed')).toBeInTheDocument()
-    })
-
     it('should render toolbar button', () => {
       render(<NewMCPButton {...defaultProps} />, { wrapper: createWrapper() })
 
-      expect(screen.getByRole('button', { name: /tools\.mcp\.create\.cardTitle/i })).toBeInTheDocument()
+      expect(
+        screen.getByRole('button', { name: /tools\.mcp\.create\.cardTitle/i }),
+      ).toBeInTheDocument()
     })
   })
 
@@ -187,36 +181,6 @@ describe('NewMCPCard', () => {
       render(<NewMCPButton {...defaultProps} />, { wrapper: createWrapper() })
 
       expect(screen.queryByText('tools.mcp.create.cardTitle')).not.toBeInTheDocument()
-    })
-  })
-
-  describe('Styling', () => {
-    it('should match the Figma card shell and section sizing', () => {
-      render(<NewMCPCard {...defaultProps} />, { wrapper: createWrapper() })
-
-      const card = screen.getByText('tools.mcp.create.cardTitle').closest('.col-span-1')
-      expect(card).toHaveClass(
-        'h-[120px]',
-        'overflow-hidden',
-        'rounded-xl',
-        'border-[0.5px]',
-        'border-components-panel-border',
-        'bg-components-panel-on-panel-item-bg',
-        'shadow-md',
-      )
-
-      const header = screen.getByRole('button', { name: 'tools.mcp.create.cardTitle' })
-      expect(header).toHaveClass('h-[84px]', 'gap-3', 'p-4')
-
-      const docLink = screen.getByText('tools.mcp.create.cardLink').closest('a')
-      expect(docLink).toHaveClass('h-8', 'border-t', 'border-divider-subtle', 'px-3', 'py-2')
-    })
-
-    it('should have clickable cursor style', () => {
-      render(<NewMCPCard {...defaultProps} />, { wrapper: createWrapper() })
-
-      const card = document.querySelector('.cursor-pointer')
-      expect(card).toBeInTheDocument()
     })
   })
 

@@ -36,7 +36,7 @@ def _token_codec() -> AgentStubTokenCodec:
 
 
 def _execution_context(**updates: object) -> DifyExecutionContextLayerConfig:
-    payload: dict[str, object] = {
+    payload = {
         "tenant_id": "tenant-1",
         "user_id": "user-1",
         "user_from": "account",
@@ -441,10 +441,7 @@ def test_http_config_routes_forward_requests(
 
     app = FastAPI()
     app.include_router(
-        create_agent_stub_http_router(
-            codec,
-            config_request_handler=cast(AgentStubConfigRequestHandler, cast(object, FakeHandler())),
-        )
+        create_agent_stub_http_router(codec, config_request_handler=cast(AgentStubConfigRequestHandler, FakeHandler()))
     )
     client = TestClient(app)
     headers = {"Authorization": f"Bearer {token}"}

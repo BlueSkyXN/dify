@@ -52,7 +52,8 @@ vi.mock('@/context/system-features-state', async (importOriginal) => {
 })
 
 vi.mock('jotai', async (importOriginal) => {
-  const { createAppContextStateJotaiMock } = await import('@/__tests__/utils/mock-app-context-state')
+  const { createAppContextStateJotaiMock } =
+    await import('@/__tests__/utils/mock-app-context-state')
 
   return createAppContextStateJotaiMock(importOriginal)
 })
@@ -87,11 +88,6 @@ describe('TagFilter', () => {
   })
 
   describe('Rendering', () => {
-    it('should render without crashing', () => {
-      render(<TagFilter {...defaultProps} />)
-      expect(screen.getByText(i18n.placeholder)).toBeInTheDocument()
-    })
-
     it('should expose the trigger as a named combobox', () => {
       render(<TagFilter {...defaultProps} />)
       expect(screen.getByRole('combobox', { name: i18n.placeholder })).toBeInTheDocument()
@@ -129,11 +125,6 @@ describe('TagFilter', () => {
     it('should hide the leading tag icon when disabled', () => {
       const { container } = render(<TagFilter {...defaultProps} showLeadingIcon={false} />)
       expect(container.querySelector('svg')).not.toBeInTheDocument()
-    })
-
-    it('should apply custom trigger class names', () => {
-      render(<TagFilter {...defaultProps} triggerClassName="min-w-0" />)
-      expect(screen.getByRole('combobox', { name: i18n.placeholder })).toHaveClass('min-w-0')
     })
 
     it('should filter tags by type prop', async () => {

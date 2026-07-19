@@ -143,7 +143,7 @@ def _client_protocol(client: FakeShellctlClient) -> ShellctlClientProtocol:
 
 def test_factory_unknown_provider_raises() -> None:
     with pytest.raises(ValidationError):
-        ShellAdapterSettings(shell_provider="nope")  # pyright: ignore[reportArgumentType]
+        ShellAdapterSettings(shell_provider="nope")  # type: ignore[arg-type]
 
 
 def test_factory_shellctl_requires_entrypoint() -> None:

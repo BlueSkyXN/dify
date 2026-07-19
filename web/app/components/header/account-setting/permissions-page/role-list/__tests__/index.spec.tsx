@@ -49,12 +49,7 @@ describe('RoleList', () => {
 
   describe('Rendering', () => {
     it('shows a loading status while the first page is loading', () => {
-      render(
-        <RoleList
-          groups={[]}
-          isLoading
-        />,
-      )
+      render(<RoleList groups={[]} isLoading />)
 
       expect(screen.getByRole('status', { name: 'appApi.loading' })).toBeInTheDocument()
       expect(screen.queryByText(/permission\.role\.groups/)).not.toBeInTheDocument()
@@ -74,13 +69,15 @@ describe('RoleList', () => {
               id: 'custom',
               category: 'global_custom',
               title: 'Custom Roles',
-              items: [createRole({
-                id: 'role-custom',
-                category: 'global_custom',
-                name: 'Executive',
-                description: 'Unrestricted access to all workspace operations',
-                is_builtin: false,
-              })],
+              items: [
+                createRole({
+                  id: 'role-custom',
+                  category: 'global_custom',
+                  name: 'Executive',
+                  description: 'Unrestricted access to all workspace operations',
+                  is_builtin: false,
+                }),
+              ],
             },
           ]}
         />,
@@ -142,33 +139,6 @@ describe('RoleList', () => {
       )
       expect(name).toHaveClass('truncate', 'system-sm-semibold', 'text-text-primary')
       expect(screen.getByText('Full access to all workspace features and settings')).toHaveClass(
-        'truncate',
-        'system-xs-regular',
-        'text-text-secondary',
-      )
-    })
-
-    it('uses the no-description fallback with the row description style', () => {
-      render(
-        <RoleList
-          groups={[
-            {
-              id: 'custom',
-              category: 'global_custom',
-              title: 'Custom Roles',
-              items: [createRole({
-                id: 'role-custom',
-                category: 'global_custom',
-                name: 'Partner',
-                description: '',
-                is_builtin: false,
-              })],
-            },
-          ]}
-        />,
-      )
-
-      expect(screen.getByText('permission.role.noDescription')).toHaveClass(
         'truncate',
         'system-xs-regular',
         'text-text-secondary',

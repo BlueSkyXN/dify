@@ -7,9 +7,12 @@ import DocumentsHeader from '../documents-header'
 // Mock the context hooks
 
 // Mock child components that require API calls
-vi.mock('@/app/components/datasets/common/document-status-with-action/auto-disabled-document', () => ({
-  default: () => <div data-testid="auto-disabled-document">AutoDisabledDocument</div>,
-}))
+vi.mock(
+  '@/app/components/datasets/common/document-status-with-action/auto-disabled-document',
+  () => ({
+    default: () => <div data-testid="auto-disabled-document">AutoDisabledDocument</div>,
+  }),
+)
 
 vi.mock('@/app/components/datasets/common/document-status-with-action/index-failed', () => ({
   default: () => <div data-testid="index-failed">IndexFailed</div>,
@@ -58,11 +61,6 @@ describe('DocumentsHeader', () => {
   })
 
   describe('Rendering', () => {
-    it('should render without crashing', () => {
-      render(<DocumentsHeader {...defaultProps} />)
-      expect(screen.getByText(/list\.title/i)).toBeInTheDocument()
-    })
-
     it('should render title', () => {
       render(<DocumentsHeader {...defaultProps} />)
       expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/list\.title/i)

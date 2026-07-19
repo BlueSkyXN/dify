@@ -1,7 +1,6 @@
 import asyncio
 import json
 from types import SimpleNamespace
-from typing import cast
 
 import httpx
 import pytest
@@ -21,14 +20,9 @@ from dify_agent.layers.dify_plugin.configs import (
     DifyPluginToolsLayerConfig,
 )
 from dify_agent.layers.dify_plugin.llm_layer import DifyPluginLLMLayer
-from dify_agent.layers.dify_plugin.tools_layer import (
-    DifyPluginToolsLayer,
-    _DifyPluginToolFileClient,
-    _PluginToolFileContext,
-)
+from dify_agent.layers.dify_plugin.tools_layer import DifyPluginToolsLayer, _PluginToolFileContext
 from dify_agent.layers.execution_context import DifyExecutionContextLayerConfig
 from dify_agent.layers.execution_context.layer import DifyExecutionContextLayer
-from dify_agent.layers.shell.layer import DifyShellLayer
 
 
 def _execution_context_config() -> DifyExecutionContextLayerConfig:
@@ -857,9 +851,9 @@ def test_plugin_tool_file_context_uploads_sandbox_path_and_resolves_signed_url()
     async def scenario() -> None:
         shell = FakeShell()
         context = _PluginToolFileContext(
-            file_client=cast(_DifyPluginToolFileClient, cast(object, FakeFileClient())),
+            file_client=FakeFileClient(),  # type: ignore[arg-type]
             execution_context=_execution_context_config(),
-            shell=cast(DifyShellLayer, cast(object, shell)),
+            shell=shell,  # type: ignore[arg-type]
         )
         result = await context.to_plugin_file_parameter("outputs/report.pdf")
 

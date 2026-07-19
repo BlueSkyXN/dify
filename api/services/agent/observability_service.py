@@ -303,6 +303,7 @@ class AgentObservabilityService:
     ) -> list[dict[str, Any]]:
         """List one workflow conversation row per app unless an exact legacy source was requested."""
         workflow_app = aliased(App)
+        # App-level sources collapse workflow/version/node dimensions so each conversation is returned once.
         is_app_source = (
             source_filter.kind in {"all", "workflow"}
             and source_filter.workflow_id is None

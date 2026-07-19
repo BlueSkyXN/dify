@@ -29,7 +29,7 @@ from agenton_collections.layers.plain import PromptLayerConfig, ToolsLayer
 from dify_agent.layers.ask_human import DIFY_ASK_HUMAN_LAYER_TYPE_ID, DifyAskHumanLayerConfig
 from dify_agent.layers.execution_context import DIFY_EXECUTION_CONTEXT_LAYER_TYPE_ID, DifyExecutionContextLayerConfig
 from dify_agent.layers.shell import DIFY_SHELL_LAYER_TYPE_ID, DifyShellLayerConfig
-from dify_agent.adapters.shell.shellctl import ShellctlClientProtocol, ShellctlProvider
+from dify_agent.adapters.shell.shellctl import ShellctlProvider
 from dify_agent.layers.shell.layer import DifyShellLayer
 from dify_agent.layers.dify_plugin.configs import (
     DIFY_PLUGIN_TOOLS_LAYER_TYPE_ID,
@@ -64,7 +64,12 @@ from dify_agent.protocol.schemas import (
 )
 from dify_agent.runtime.event_sink import InMemoryRunEventSink
 from dify_agent.runtime.compositor_factory import create_default_layer_providers
-from dify_agent.runtime.runner import AgentRunRunner, AgentRunValidationError, _run_failed_error_payload
+from dify_agent.runtime.runner import (
+    AgentRunRunner,
+    AgentRunValidationError,
+    RunSuccessOutcome,
+    _run_failed_error_payload,
+)
 from shellctl.shared import DeleteJobResponse, JobResult, JobStatusName, JobStatusView
 
 
@@ -73,7 +78,7 @@ class StaticToolsTestLayer(ToolsLayer):
 
 
 class FakeRunnerShellctlClient:
-    run_calls: list[tuple[str, str | None, dict[str, str] | None, float]]
+    run_calls: list[tuple[str, str | None, Mapping[str, str] | None, float]]
     delete_calls: list[tuple[str, bool, float | None]]
     closed: bool
 
@@ -87,11 +92,9 @@ class FakeRunnerShellctlClient:
         script: str,
         *,
         cwd: str | None = None,
-        env: dict[str, str] | None = None,
+        env: Mapping[str, str] | None = None,
         timeout: float = 10.0,
-        terminal: object | None = None,
     ) -> JobResult:
-        del terminal
         self.run_calls.append((script, cwd, env, timeout))
         return JobResult(
             job_id="mkdir-job",
@@ -114,10 +117,6 @@ class FakeRunnerShellctlClient:
     async def input(self, job_id: str, text: str, *, offset: int, timeout: float = 10.0) -> JobResult:
         del job_id, text, offset, timeout
         raise AssertionError("input() should not be called in this test")
-
-    async def tail(self, job_id: str) -> JobResult:
-        del job_id
-        raise AssertionError("tail() should not be called in this test")
 
     async def terminate(self, job_id: str, grace_seconds: float = 2.0) -> JobStatusView:
         del job_id, grace_seconds
@@ -168,6 +167,38 @@ def test_run_failed_error_payload_preserves_knowledge_error_code() -> None:
 
     assert message == "Knowledge base search failed with HTTP 400 (dataset_not_found): Dataset not found"
     assert reason == "dataset_not_found"
+
+
+def test_cancelled_runner_does_not_overwrite_cancelled_status_with_late_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def scenario() -> None:
+        sink = InMemoryRunEventSink()
+        cancelled = False
+        async with httpx.AsyncClient() as client:
+            runner = AgentRunRunner(
+                sink=sink,
+                request=_request(),
+                run_id="run-cancelled",
+                plugin_daemon_http_client=client,
+                dify_api_http_client=client,
+                is_cancelled=lambda: cancelled,
+            )
+
+            async def fail_after_cancel() -> RunSuccessOutcome:
+                nonlocal cancelled
+                cancelled = True
+                await sink.update_status("run-cancelled", "cancelled", "workflow stopped")
+                raise RuntimeError("late model failure")
+
+            monkeypatch.setattr(runner, "_run_agent", fail_after_cancel)
+            await runner.run()
+
+        assert sink.statuses["run-cancelled"] == "cancelled"
+        assert sink.errors["run-cancelled"] == "workflow stopped"
+        assert [event.type for event in sink.events["run-cancelled"]] == ["run_started"]
+
+    asyncio.run(scenario())
 
 
 def _request(
@@ -1573,7 +1604,7 @@ def test_runner_rejects_duplicate_tool_names_between_shell_and_other_layers(
             shell_provider=ShellctlProvider(
                 entrypoint="http://shellctl",
                 token="",
-                client_factory=lambda: cast(ShellctlClientProtocol, cast(object, shell_client)),
+                client_factory=lambda: shell_client,
             ),
         ),
     )

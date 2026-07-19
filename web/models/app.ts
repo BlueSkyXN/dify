@@ -59,15 +59,15 @@ export type DSLImportResponse = {
 export type UpdateAppSiteCodeResponse = { app_id: string } & SiteConfig
 
 export type AppDailyMessagesResponse = {
-  data: Array<{ date: string, message_count: number }>
+  data: Array<{ date: string; message_count: number }>
 }
 
 export type AppDailyConversationsResponse = {
-  data: Array<{ date: string, conversation_count: number }>
+  data: Array<{ date: string; conversation_count: number }>
 }
 
 export type WorkflowDailyConversationsResponse = {
-  data: Array<{ date: string, runs: number }>
+  data: Array<{ date: string; runs: number }>
 }
 
 export type AppStatisticsResponse = {
@@ -75,11 +75,11 @@ export type AppStatisticsResponse = {
 }
 
 export type AppDailyEndUsersResponse = {
-  data: Array<{ date: string, terminal_count: number }>
+  data: Array<{ date: string; terminal_count: number }>
 }
 
 export type AppTokenCostsResponse = {
-  data: Array<{ date: string, token_count: number, total_price: number, currency: number }>
+  data: Array<{ date: string; token_count: number; total_price: number; currency: number }>
 }
 
 export type UpdateAppModelConfigResponse = { result: string }
@@ -101,10 +101,12 @@ export type CreateApiKeyResponse = {
   created_at: string
 }
 
-export type AppVoicesListResponse = [{
-  name: string
-  value: string
-}]
+export type AppVoicesListResponse = [
+  {
+    name: string
+    value: string
+  },
+]
 
 export type WorkflowOnlineUser = {
   user_id?: string
@@ -114,10 +116,12 @@ export type WorkflowOnlineUser = {
 }
 
 export type WorkflowOnlineUsersResponse = {
-  data: Record<string, WorkflowOnlineUser[]> | Array<{
-    app_id: string
-    users: WorkflowOnlineUser[]
-  }>
+  data:
+    | Record<string, WorkflowOnlineUser[]>
+    | Array<{
+        app_id: string
+        users: WorkflowOnlineUser[]
+      }>
 }
 
 export type TracingStatus = {
@@ -127,7 +131,17 @@ export type TracingStatus = {
 
 export type TracingConfig = {
   tracing_provider: TracingProvider
-  tracing_config: ArizeConfig | PhoenixConfig | LangSmithConfig | LangFuseConfig | DatabricksConfig | MLflowConfig | OpikConfig | WeaveConfig | AliyunConfig | TencentConfig
+  tracing_config:
+    | ArizeConfig
+    | PhoenixConfig
+    | LangSmithConfig
+    | LangFuseConfig
+    | DatabricksConfig
+    | MLflowConfig
+    | OpikConfig
+    | WeaveConfig
+    | AliyunConfig
+    | TencentConfig
 }
 
 export type WebhookTriggerResponse = {
@@ -142,9 +156,9 @@ export type WebhookTriggerResponse = {
 export type Banner = {
   id: string
   content: {
-    'category': string
-    'title': string
-    'description': string
+    category: string
+    title: string
+    description: string
     'img-src': string
   }
   link: string

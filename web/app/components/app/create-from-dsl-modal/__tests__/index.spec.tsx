@@ -1,15 +1,11 @@
-/* eslint-disable ts/no-explicit-any */
-import {
-  act,
-  fireEvent,
-  screen,
-  waitFor,
-} from '@testing-library/react'
+/* oxlint-disable typescript/no-explicit-any */
+import { act, fireEvent, screen, waitFor } from '@testing-library/react'
 import { renderWithSystemFeatures as render } from '@/__tests__/utils/mock-system-features'
 import { NEED_REFRESH_APP_LIST_KEY } from '@/app/components/apps/storage'
 import { DSLImportMode, DSLImportStatus } from '@/models/app'
 import { AppModeEnum } from '@/types/app'
-import CreateFromDSLModal, { CreateFromDSLModalTab } from '../index'
+import CreateFromDSLModal from '../index'
+import { CreateFromDSLModalTab } from '../types'
 
 const mockPush = vi.fn()
 const mockImportDSL = vi.fn()
@@ -28,7 +24,7 @@ const toastMocks = vi.hoisted(() => ({
   warning: vi.fn(),
 }))
 const hotkeyMocks = vi.hoisted(() => ({
-  handlers: new Map<string, { handler: () => void, options?: { enabled?: boolean } }>(),
+  handlers: new Map<string, { handler: () => void; options?: { enabled?: boolean } }>(),
 }))
 let mockPlanUsage = 0
 let mockPlanTotal = 10
@@ -52,8 +48,7 @@ vi.mock('@tanstack/react-hotkeys', async (importOriginal) => {
 
 const triggerHotkey = (hotkey: string) => {
   const registration = hotkeyMocks.handlers.get(hotkey)
-  if (registration?.options?.enabled === false)
-    return
+  if (registration?.options?.enabled === false) return
   registration?.handler()
 }
 
@@ -123,7 +118,8 @@ vi.mock('@/context/system-features-state', async (importOriginal) => {
 })
 
 vi.mock('jotai', async (importOriginal) => {
-  const { createAppContextStateJotaiMock } = await import('@/__tests__/utils/mock-app-context-state')
+  const { createAppContextStateJotaiMock } =
+    await import('@/__tests__/utils/mock-app-context-state')
 
   return createAppContextStateJotaiMock(importOriginal)
 })
@@ -188,8 +184,7 @@ describe('CreateFromDSLModal', () => {
     vi.useRealTimers()
   })
 
-  const getCreateButton = () =>
-    screen.getByRole('button', { name: /newApp\.Create/i })
+  const getCreateButton = () => screen.getByRole('button', { name: /newApp\.Create/i })
 
   it('should render the file tab and show the dropped file', async () => {
     render(
@@ -223,10 +218,7 @@ describe('CreateFromDSLModal', () => {
 
     const closeTrigger = screen
       .getByText(/(?:^|\.)importApp(?=$|:)/)
-      .parentElement
-      ?.querySelector(
-        '.cursor-pointer.items-center',
-      ) as HTMLElement
+      .parentElement?.querySelector('.cursor-pointer.items-center') as HTMLElement
     fireEvent.click(closeTrigger)
     expect(handleClose).toHaveBeenCalledTimes(1)
   })
@@ -265,12 +257,9 @@ describe('CreateFromDSLModal', () => {
       />,
     )
 
-    fireEvent.change(
-      screen.getByPlaceholderText(/(?:^|\.)importFromDSLUrlPlaceholder(?=$|:)/),
-      {
-        target: { value: 'https://example.com/app.yml' },
-      },
-    )
+    fireEvent.change(screen.getByPlaceholderText(/(?:^|\.)importFromDSLUrlPlaceholder(?=$|:)/), {
+      target: { value: 'https://example.com/app.yml' },
+    })
 
     await act(async () => {
       fireEvent.click(getCreateButton())
@@ -448,9 +437,7 @@ describe('CreateFromDSLModal', () => {
     )!.toBeInTheDocument()
 
     await act(async () => {
-      fireEvent.click(
-        screen.getAllByRole('button', { name: /(?:^|\.)newApp\.Confirm(?=$|:)/ })[0]!,
-      )
+      fireEvent.click(screen.getAllByRole('button', { name: /(?:^|\.)newApp\.Confirm(?=$|:)/ })[0]!)
     })
 
     expect(mockImportDSLConfirm).toHaveBeenCalledWith({
@@ -566,9 +553,7 @@ describe('CreateFromDSLModal', () => {
       vi.advanceTimersByTime(300)
     })
 
-    expect(
-      screen.getByText(/(?:^|\.)newApp\.appCreateDSLErrorTitle(?=$|:)/),
-    )!.toBeInTheDocument()
+    expect(screen.getByText(/(?:^|\.)newApp\.appCreateDSLErrorTitle(?=$|:)/))!.toBeInTheDocument()
 
     vi.useRealTimers()
     fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' })
@@ -606,9 +591,7 @@ describe('CreateFromDSLModal', () => {
       vi.advanceTimersByTime(300)
     })
 
-    expect(
-      screen.getByText(/(?:^|\.)newApp\.appCreateDSLErrorTitle(?=$|:)/),
-    )!.toBeInTheDocument()
+    expect(screen.getByText(/(?:^|\.)newApp\.appCreateDSLErrorTitle(?=$|:)/))!.toBeInTheDocument()
 
     vi.useRealTimers()
     fireEvent.click(
@@ -750,7 +733,9 @@ describe('CreateFromDSLModal', () => {
       fireEvent.click(getCreateButton())
     })
     expect(toastMocks.error).toHaveBeenCalledTimes(2)
-    expect(toastMocks.error).toHaveBeenLastCalledWith(expect.stringMatching(/(?:^|\.)newApp\.appCreateFailed(?=$|:)/))
+    expect(toastMocks.error).toHaveBeenLastCalledWith(
+      expect.stringMatching(/(?:^|\.)newApp\.appCreateFailed(?=$|:)/),
+    )
   })
 
   it('should handle pending import confirmation failures and cancellation', async () => {
@@ -794,18 +779,16 @@ describe('CreateFromDSLModal', () => {
       vi.advanceTimersByTime(300)
     })
     await act(async () => {
-      fireEvent.click(
-        screen.getAllByRole('button', { name: /(?:^|\.)newApp\.Confirm(?=$|:)/ })[0]!,
-      )
+      fireEvent.click(screen.getAllByRole('button', { name: /(?:^|\.)newApp\.Confirm(?=$|:)/ })[0]!)
     })
     expect(toastMocks.error).toHaveBeenCalledWith('Confirm failed')
 
     await act(async () => {
-      fireEvent.click(
-        screen.getAllByRole('button', { name: /(?:^|\.)newApp\.Confirm(?=$|:)/ })[0]!,
-      )
+      fireEvent.click(screen.getAllByRole('button', { name: /(?:^|\.)newApp\.Confirm(?=$|:)/ })[0]!)
     })
     expect(toastMocks.error).toHaveBeenCalledTimes(2)
-    expect(toastMocks.error).toHaveBeenLastCalledWith(expect.stringMatching(/(?:^|\.)newApp\.appCreateFailed(?=$|:)/))
+    expect(toastMocks.error).toHaveBeenLastCalledWith(
+      expect.stringMatching(/(?:^|\.)newApp\.appCreateFailed(?=$|:)/),
+    )
   })
 })

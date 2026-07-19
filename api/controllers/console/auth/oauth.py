@@ -11,7 +11,6 @@ from configs import dify_config
 from constants.languages import languages
 from controllers.common.fields import RedirectResponse
 from controllers.common.schema import query_params_from_model, register_response_schema_model, register_schema_models
-from events.tenant_event import tenant_was_created
 from extensions.ext_database import db
 from libs.datetime_utils import naive_utc_now
 from libs.helper import extract_remote_ip
@@ -25,7 +24,7 @@ from libs.token import (
 from models import Account, AccountStatus
 from services.account_service import AccountService, RegisterService, TenantService
 from services.billing_service import BillingService
-from services.errors.account import AccountNotFoundError, AccountRegisterError
+from services.errors.account import AccountNotFoundError, AccountRegisterError, SeatsLimitExceededError
 from services.errors.workspace import WorkSpaceNotAllowedCreateError, WorkSpaceNotFoundError
 from services.feature_service import FeatureService
 
@@ -216,6 +215,8 @@ class OAuthCallback(Resource):
                 f"{dify_config.CONSOLE_WEB_URL}/signin"
                 "?message=Workspace not found, please contact system admin to invite you to join in a workspace."
             )
+        except SeatsLimitExceededError:
+            return redirect(f"{dify_config.CONSOLE_WEB_URL}/signin?message=Licensed seats limit exceeded.")
         except AccountRegisterError as e:
             return redirect(f"{dify_config.CONSOLE_WEB_URL}/signin?message={e.description}")
 
@@ -280,10 +281,7 @@ def _generate_account(
             if not FeatureService.get_system_features().is_allow_create_workspace:
                 raise WorkSpaceNotAllowedCreateError()
             else:
-                new_tenant = TenantService.create_tenant(f"{account.name}'s Workspace", session=db.session())
-                TenantService.create_tenant_member(new_tenant, account, db.session(), role="owner")
-                account.current_tenant = new_tenant
-                tenant_was_created.send(new_tenant)
+                TenantService.create_owner_tenant(account, session=db.session())
 
     if not account:
         normalized_email = user_info.email.lower()

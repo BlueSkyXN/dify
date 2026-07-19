@@ -19,16 +19,18 @@ let mockAppCtx: Record<string, unknown> = {}
 vi.mock('@langgenius/dify-ui/dialog', () => ({
   Dialog: ({ children, onOpenChange }: DialogProps) => {
     latestOnOpenChange = onOpenChange
-    return <div data-testid="dialog">{children}</div>
+    return <div>{children}</div>
   },
-  DialogContent: ({ children, className }: { children: ReactNode, className?: string }) => (
+  DialogContent: ({ children, className }: { children: ReactNode; className?: string }) => (
     <div className={className}>{children}</div>
   ),
 }))
 
 vi.mock('../header', () => ({
   default: ({ onClose }: { onClose: () => void }) => (
-    <button data-testid="pricing-header-close" onClick={onClose}>close</button>
+    <button type="button" onClick={onClose}>
+      close
+    </button>
   ),
 }))
 
@@ -66,7 +68,8 @@ vi.mock('@/context/system-features-state', async (importOriginal) => {
 })
 
 vi.mock('jotai', async (importOriginal) => {
-  const { createAppContextStateJotaiMock } = await import('@/__tests__/utils/mock-app-context-state')
+  const { createAppContextStateJotaiMock } =
+    await import('@/__tests__/utils/mock-app-context-state')
   return createAppContextStateJotaiMock(importOriginal)
 })
 

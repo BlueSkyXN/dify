@@ -11,10 +11,9 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import ClassVar, cast
+from typing import ClassVar
 
 import httpx
-from pydantic import JsonValue
 from pydantic_ai import RunContext, Tool
 from pydantic_ai.tools import ToolDefinition
 from typing_extensions import Self, override
@@ -110,7 +109,7 @@ class DifyCoreToolsLayer(PlainLayer[DifyCoreToolsDeps, DifyCoreToolsLayerConfig]
                 response = await client.invoke(
                     execution_context=execution_context,
                     tool_config=tool_config,
-                    tool_parameters=cast(dict[str, JsonValue], tool_arguments),
+                    tool_parameters=tool_arguments,
                 )
                 return response.observation
             except DifyCoreToolsClientConfigurationError:
