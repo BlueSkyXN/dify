@@ -1,0 +1,260 @@
+name: Publish HFS runtime archive
+
+on:
+  workflow_dispatch:
+    inputs:
+      artifact_ref:
+        description: Exact BlueSkyXN/dify commit represented by the runtime archive
+        required: true
+        type: string
+      release_tag:
+        description: New or existing immutable GitHub Release tag for this runtime
+        required: true
+        type: string
+      confirm_publish:
+        description: Type PUBLISH_DIFY_HFS_RUNTIME to authorize the Release write
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dify-hfs-runtime-${{ inputs.artifact_ref }}
+  cancel-in-progress: false
+
+env:
+  CONSUMER_REPOSITORY: BlueSkyXN/Dify-all-in-one-HFS
+  CONSUMER_COMMIT: 739871b7e2f1d156d957df589ebda4ac1e44aeb3
+  LEGACY_BUILD_COMMIT: 1d5ce9343ec09f5d95a837816e312bc0256a1ebc
+  MAX_ARCHIVE_BYTES: "4294967296"
+
+jobs:
+  publish:
+    if: inputs.confirm_publish == 'PUBLISH_DIFY_HFS_RUNTIME'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Validate immutable publication inputs
+        env:
+          ARTIFACT_REF: ${{ inputs.artifact_ref }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          [[ "$ARTIFACT_REF" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "artifact_ref must be a full lowercase Git commit" >&2
+            exit 2
+          }
+          [[ "$RELEASE_TAG" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$ \
+            && "$RELEASE_TAG" != *..* \
+            && "$RELEASE_TAG" != latest \
+            && "$RELEASE_TAG" != main ]] || {
+            echo "release_tag must be an immutable safe tag" >&2
+            exit 2
+          }
+
+      - name: Checkout exact producer source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ inputs.artifact_ref }}
+          path: producer-source
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Checkout immutable consumer contract
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          repository: ${{ env.CONSUMER_REPOSITORY }}
+          ref: ${{ env.CONSUMER_COMMIT }}
+          path: consumer
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Checkout the retained reviewed image assembly context
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          repository: ${{ env.CONSUMER_REPOSITORY }}
+          ref: ${{ env.LEGACY_BUILD_COMMIT }}
+          path: legacy-wrapper
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Bind all component pins to the requested fork commit
+        env:
+          ARTIFACT_REF: ${{ inputs.artifact_ref }}
+        run: |
+          set -euo pipefail
+          test "$(git -C producer-source rev-parse HEAD)" = "$ARTIFACT_REF"
+          test "$(git -C consumer rev-parse HEAD)" = "$CONSUMER_COMMIT"
+          test "$(git -C legacy-wrapper rev-parse HEAD)" = "$LEGACY_BUILD_COMMIT"
+          python3 - "$ARTIFACT_REF" "$GITHUB_ENV" <<'PY'
+          import re
+          import sys
+          from pathlib import Path
+
+          artifact_ref, output = sys.argv[1:]
+          dockerfile = Path("legacy-wrapper/Dockerfile").read_text(encoding="utf-8")
+          names = (
+              "DIFY_SOURCE_MAIN_REF",
+              "DIFY_WEB_IMAGE_REF",
+              "DIFY_API_IMAGE_REF",
+              "DIFY_AGENT_IMAGE_REF",
+              "DIFY_AGENT_RUNTIME_IMAGE_REF",
+              "PLUGIN_DAEMON_IMAGE_REF",
+              "SANDBOX_IMAGE_REF",
+              "DIFY_SANDBOX_SOURCE_REF",
+          )
+          values = {}
+          for name in names:
+              match = re.search(rf"^ARG {name}=([^\s]+)$", dockerfile, re.MULTILINE)
+              if not match:
+                  raise SystemExit(f"legacy build context is missing {name}")
+              values[name] = match.group(1)
+          if values["DIFY_SOURCE_MAIN_REF"] != artifact_ref:
+              raise SystemExit("legacy component pins do not represent artifact_ref")
+          image_names = names[1:7]
+          image_pattern = re.compile(r"^[^@\s]+@sha256:[0-9a-f]{64}$")
+          if any(not image_pattern.fullmatch(values[name]) for name in image_names):
+              raise SystemExit("every runtime image must be digest-pinned")
+          if not re.fullmatch(r"[0-9a-f]{40}", values["DIFY_SANDBOX_SOURCE_REF"]):
+              raise SystemExit("sandbox source must be a full Git commit")
+          with Path(output).open("a", encoding="utf-8") as handle:
+              for name, value in values.items():
+                  handle.write(f"{name}={value}\n")
+          PY
+
+      - name: Build the retained exact runtime assembly
+        env:
+          ARTIFACT_REF: ${{ inputs.artifact_ref }}
+        run: |
+          set -euo pipefail
+          docker build \
+            --platform linux/amd64 \
+            --build-arg "DIFY_SOURCE_MAIN_REF=$ARTIFACT_REF" \
+            --tag "dify-hfs-runtime-source:$ARTIFACT_REF" \
+            legacy-wrapper
+
+      - name: Export the consumer-owned runtime tree
+        env:
+          ARTIFACT_REF: ${{ inputs.artifact_ref }}
+        run: |
+          set -euo pipefail
+          container="$(docker create "dify-hfs-runtime-source:$ARTIFACT_REF")"
+          trap 'docker rm -f "$container" >/dev/null 2>&1 || true' EXIT
+          runtime_root="$RUNNER_TEMP/dify-runtime-root"
+          mkdir -p "$runtime_root"
+          paths=(
+            app/api
+            app/targets
+            app/entrypoint.sh
+            opt/dify-agent/.venv
+            opt/dify/plugin-daemon
+            opt/dify/sandbox/main
+            usr/local/bin/shellctl
+            usr/local/bin/shellctl-runner
+            usr/local/bin/shellctl-runner-exit
+            usr/local/bin/shellctl-sanitize-pty
+            usr/local/bin/dify-agent
+            conf
+            dependencies
+          )
+          for path in "${paths[@]}"; do
+            mkdir -p "$runtime_root/$(dirname "$path")"
+            docker cp "$container:/$path" "$runtime_root/$path"
+          done
+          echo "RUNTIME_ROOT=$runtime_root" >> "$GITHUB_ENV"
+
+      - name: Package and execute the complete consumer contract
+        env:
+          ARTIFACT_REF: ${{ inputs.artifact_ref }}
+        run: |
+          set -euo pipefail
+          source_date_epoch="$(git -C producer-source show -s --format=%ct HEAD)"
+          output="$RUNNER_TEMP/dify-runtime-output"
+          python3 consumer/scripts/package-dify-runtime-artifact.py \
+            --runtime-root "$RUNTIME_ROOT" \
+            --output-dir "$output" \
+            --slot edge \
+            --source-kind commit \
+            --source-name "$ARTIFACT_REF" \
+            --source-ref "$ARTIFACT_REF" \
+            --source-date-epoch "$source_date_epoch" \
+            --api-image-ref "$DIFY_API_IMAGE_REF" \
+            --web-image-ref "$DIFY_WEB_IMAGE_REF" \
+            --agent-image-ref "$DIFY_AGENT_IMAGE_REF" \
+            --agent-runtime-image-ref "$DIFY_AGENT_RUNTIME_IMAGE_REF" \
+            --plugin-daemon-image-ref "$PLUGIN_DAEMON_IMAGE_REF" \
+            --sandbox-image-ref "$SANDBOX_IMAGE_REF" \
+            --sandbox-source-ref "$DIFY_SANDBOX_SOURCE_REF"
+          artifact="$output/dify-runtime-$ARTIFACT_REF.tar.gz"
+          test -s "$artifact"
+          test "$(stat --format=%s "$artifact")" -le "$MAX_ARCHIVE_BYTES"
+          validation_root="$RUNNER_TEMP/consumer-validation"
+          python3 consumer/docker/dify_artifact_contract.py \
+            --manifest "$output/manifest.json" \
+            --manifest-uri hf://buckets/BlueSkyXN/hfs-dist/dify-all-in-one/edge/manifest.json \
+            --artifact "$artifact" \
+            --install-root "$validation_root/runtime" \
+            --expected-source-ref "$ARTIFACT_REF" \
+            --max-bytes "$MAX_ARCHIVE_BYTES"
+          echo "OUTPUT_DIR=$output" >> "$GITHUB_ENV"
+
+      - name: Create immutable Release and upload without overwrite
+        env:
+          ARTIFACT_REF: ${{ inputs.artifact_ref }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          artifact="dify-runtime-$ARTIFACT_REF.tar.gz"
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            target="$(gh release view "$RELEASE_TAG" --json targetCommitish --jq .targetCommitish)"
+            test "$target" = "$ARTIFACT_REF"
+          else
+            gh release create "$RELEASE_TAG" \
+              --target "$ARTIFACT_REF" \
+              --title "Dify HFS runtime ${ARTIFACT_REF::12}" \
+              --notes "Immutable HFS runtime assembled from the reviewed component pins for $ARTIFACT_REF."
+          fi
+          existing="$(gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name')"
+          for file in "$artifact" manifest.json SHA256SUMS.txt; do
+            if grep -Fx "$file" <<<"$existing" >/dev/null; then
+              echo "refusing to overwrite existing Release asset: $file" >&2
+              exit 1
+            fi
+          done
+          gh release upload "$RELEASE_TAG" \
+            "$OUTPUT_DIR/$artifact" \
+            "$OUTPUT_DIR/manifest.json" \
+            "$OUTPUT_DIR/SHA256SUMS.txt"
+
+      - name: Read back every Release asset
+        env:
+          ARTIFACT_REF: ${{ inputs.artifact_ref }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          artifact="dify-runtime-$ARTIFACT_REF.tar.gz"
+          readback="$RUNNER_TEMP/release-readback"
+          mkdir -p "$readback"
+          gh release download "$RELEASE_TAG" \
+            --pattern "$artifact" \
+            --pattern manifest.json \
+            --pattern SHA256SUMS.txt \
+            --dir "$readback"
+          cmp "$OUTPUT_DIR/$artifact" "$readback/$artifact"
+          cmp "$OUTPUT_DIR/manifest.json" "$readback/manifest.json"
+          cmp "$OUTPUT_DIR/SHA256SUMS.txt" "$readback/SHA256SUMS.txt"
+          (
+            cd "$readback"
+            sha256sum -c SHA256SUMS.txt
+          )
+          {
+            echo "### Dify HFS runtime producer"
+            echo "- artifact ref: $ARTIFACT_REF"
+            echo "- Release: $RELEASE_TAG"
+            echo "- fixed archive limit: $MAX_ARCHIVE_BYTES bytes"
+            echo "- complete consumer extraction contract: passed"
+            echo "- Release asset readback: passed"
+          } >> "$GITHUB_STEP_SUMMARY"
