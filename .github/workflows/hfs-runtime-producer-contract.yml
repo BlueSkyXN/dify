@@ -1,0 +1,60 @@
+name: HFS runtime producer contract
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/publish-hfs-runtime.yml
+      - .github/workflows/hfs-runtime-producer-contract.yml
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/publish-hfs-runtime.yml
+      - .github/workflows/hfs-runtime-producer-contract.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hfs-runtime-producer-contract-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-consumer-pin:
+    name: Validate immutable consumer pin
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout producer workflow
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Resolve and validate the immutable consumer pin
+        shell: bash
+        run: |
+          set -euo pipefail
+          workflow=.github/workflows/publish-hfs-runtime.yml
+          consumer_repository="$(sed -n 's/^  CONSUMER_REPOSITORY: //p' "$workflow")"
+          consumer_commit="$(sed -n 's/^  CONSUMER_COMMIT: //p' "$workflow")"
+          [[ "$consumer_repository" == BlueSkyXN/Dify-all-in-one-HFS ]]
+          [[ "$consumer_commit" =~ ^[0-9a-f]{40}$ ]]
+
+          git init --quiet consumer
+          git -C consumer remote add origin "https://github.com/${consumer_repository}.git"
+          git -C consumer fetch --quiet --depth=1 origin "$consumer_commit"
+          git -C consumer checkout --quiet --detach FETCH_HEAD
+          test "$(git -C consumer rev-parse HEAD)" = "$consumer_commit"
+          test -f consumer/scripts/package-dify-runtime-artifact.py
+          test -f consumer/docker/dify_artifact_contract.py
+          test -f consumer/scripts/static-check.sh
+
+      - name: Run the selected consumer contract
+        working-directory: consumer
+        shell: bash
+        run: bash scripts/static-check.sh
+
+      - name: Verify producer workflow diff hygiene
+        shell: bash
+        run: git diff --check
