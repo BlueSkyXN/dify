@@ -965,6 +965,12 @@ Returns Server-Sent Events stream.
 | ---- | ---- | ----------- | -------- |
 | tool_icons | object | Tool icon metadata keyed by tool name | No |
 
+#### AppMode
+
+| Name | Type | Description | Required |
+| ---- | ---- | ----------- | -------- |
+| AppMode | string |  |  |
+
 #### AppPermissionQuery
 
 | Name | Type | Description | Required |
@@ -1557,7 +1563,6 @@ Non-sensitive bootstrap snapshot exposed before Console or Web authentication.
 | enable_marketplace | boolean |  | Yes |
 | enable_social_oauth_login | boolean |  | Yes |
 | enable_step_by_step_tour | boolean |  | Yes |
-| enable_trial_app | boolean |  | Yes |
 | is_allow_register | boolean |  | Yes |
 | is_email_setup | boolean |  | Yes |
 | knowledge_fs_enabled | boolean |  | Yes |
@@ -1600,11 +1605,11 @@ User action configuration.
 #### ValueSourceType
 
 ValueSourceType records whether the value comes from a static setting
-in form definiton, or a variable while the workflow is running.
+in form definition, or a variable while the workflow is running.
 
 | Name | Type | Description | Required |
 | ---- | ---- | ----------- | -------- |
-| ValueSourceType | string | ValueSourceType records whether the value comes from a static setting in form definiton, or a variable while the workflow is running. |  |
+| ValueSourceType | string | ValueSourceType records whether the value comes from a static setting in form definition, or a variable while the workflow is running. |  |
 
 #### VerificationTokenResponse
 
@@ -1647,6 +1652,7 @@ in form definiton, or a variable while the workflow is running.
 | custom_config | [WebAppCustomConfigResponse](#webappcustomconfigresponse) |  | No |
 | enable_site | boolean |  | Yes |
 | end_user_id | string |  | No |
+| mode | [AppMode](#appmode) |  | Yes |
 | model_config | [WebModelConfigResponse](#webmodelconfigresponse) |  | No |
 | plan | string |  | Yes |
 | site | [WebSiteResponse](#websiteresponse) |  | Yes |

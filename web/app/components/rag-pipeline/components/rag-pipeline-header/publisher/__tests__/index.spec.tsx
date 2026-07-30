@@ -100,10 +100,13 @@ vi.mock('@/next/link', () => ({
 
 const mockHandleSyncWorkflowDraft = vi.fn()
 const mockHandleCheckBeforePublish = vi.fn().mockResolvedValue(true)
-vi.mock('@/app/components/workflow/hooks', () => ({
+vi.mock('@/app/components/workflow/hooks/use-nodes-sync-draft', () => ({
   useNodesSyncDraft: () => ({
     handleSyncWorkflowDraft: mockHandleSyncWorkflowDraft,
   }),
+}))
+
+vi.mock('@/app/components/workflow/hooks/use-checklist', () => ({
   useChecklistBeforePublish: () => ({
     handleCheckBeforePublish: mockHandleCheckBeforePublish,
   }),
@@ -930,7 +933,7 @@ describe('publisher', () => {
         const { container } = renderWithQueryClient(<Popup />)
 
         const popupDiv = container.firstChild as HTMLElement
-        expect(popupDiv.className).toContain('w-[360px]')
+        expect(popupDiv.className).toContain('w-90')
       })
 
       it('should display correct width when permission is not allowed', () => {
@@ -938,7 +941,7 @@ describe('publisher', () => {
         const { container } = renderWithQueryClient(<Popup />)
 
         const popupDiv = container.firstChild as HTMLElement
-        expect(popupDiv.className).toContain('w-[400px]')
+        expect(popupDiv.className).toContain('w-100')
       })
 
       it('should display draft updated time when not published', () => {
