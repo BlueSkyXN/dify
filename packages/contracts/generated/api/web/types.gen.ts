@@ -43,6 +43,16 @@ export type AppMetaResponse = {
   }
 }
 
+export type AppMode =
+  | 'advanced-chat'
+  | 'agent'
+  | 'agent-chat'
+  | 'channel'
+  | 'chat'
+  | 'completion'
+  | 'rag-pipeline'
+  | 'workflow'
+
 export type AppPermissionQuery = {
   appId: string
 }
@@ -511,7 +521,6 @@ export type SystemFeatureModel = {
   enable_marketplace: boolean
   enable_social_oauth_login: boolean
   enable_step_by_step_tour: boolean
-  enable_trial_app: boolean
   is_allow_register: boolean
   is_email_setup: boolean
   knowledge_fs_enabled: boolean
@@ -576,6 +585,7 @@ export type WebAppSiteResponse = {
   custom_config?: WebAppCustomConfigResponse | null
   enable_site: boolean
   end_user_id?: string | null
+  mode: AppMode
   model_config?: WebModelConfigResponse | null
   plan: string
   site: WebSiteResponse
