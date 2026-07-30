@@ -18,6 +18,7 @@ on:
 
 permissions:
   contents: write
+  packages: read
 
 concurrency:
   group: dify-hfs-runtime-${{ inputs.artifact_ref }}
@@ -25,8 +26,9 @@ concurrency:
 
 env:
   CONSUMER_REPOSITORY: BlueSkyXN/Dify-all-in-one-HFS
-  CONSUMER_COMMIT: d488580bb39f03f18918497f0d6dced838f5ee39
+  CONSUMER_COMMIT: 71e4facf09e8d098f70c5b4d61523c3e54e91936
   LEGACY_BUILD_COMMIT: 1d5ce9343ec09f5d95a837816e312bc0256a1ebc
+  DIFY_UPSTREAM_BASE_REF: 5e6154fdd1a68ea0ef8d915cf263dbf795870f5f
   MAX_ARCHIVE_BYTES: "4294967296"
 
 jobs:
@@ -79,7 +81,7 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Bind all component pins to the requested fork commit
+      - name: Bind retained external component pins
         env:
           ARTIFACT_REF: ${{ inputs.artifact_ref }}
         run: |
@@ -87,19 +89,14 @@ jobs:
           test "$(git -C producer-source rev-parse HEAD)" = "$ARTIFACT_REF"
           test "$(git -C consumer rev-parse HEAD)" = "$CONSUMER_COMMIT"
           test "$(git -C legacy-wrapper rev-parse HEAD)" = "$LEGACY_BUILD_COMMIT"
-          python3 - "$ARTIFACT_REF" "$GITHUB_ENV" <<'PY'
+          python3 - "$GITHUB_ENV" <<'PY'
           import re
           import sys
           from pathlib import Path
 
-          artifact_ref, output = sys.argv[1:]
+          output = sys.argv[1]
           dockerfile = Path("legacy-wrapper/Dockerfile").read_text(encoding="utf-8")
           names = (
-              "DIFY_SOURCE_MAIN_REF",
-              "DIFY_WEB_IMAGE_REF",
-              "DIFY_API_IMAGE_REF",
-              "DIFY_AGENT_IMAGE_REF",
-              "DIFY_AGENT_RUNTIME_IMAGE_REF",
               "PLUGIN_DAEMON_IMAGE_REF",
               "SANDBOX_IMAGE_REF",
               "DIFY_SANDBOX_SOURCE_REF",
@@ -110,18 +107,52 @@ jobs:
               if not match:
                   raise SystemExit(f"legacy build context is missing {name}")
               values[name] = match.group(1)
-          if values["DIFY_SOURCE_MAIN_REF"] != artifact_ref:
-              raise SystemExit("legacy component pins do not represent artifact_ref")
-          image_names = names[1:7]
+          image_names = names[:2]
           image_pattern = re.compile(r"^[^@\s]+@sha256:[0-9a-f]{64}$")
           if any(not image_pattern.fullmatch(values[name]) for name in image_names):
-              raise SystemExit("every runtime image must be digest-pinned")
+              raise SystemExit("every retained external runtime image must be digest-pinned")
           if not re.fullmatch(r"[0-9a-f]{40}", values["DIFY_SANDBOX_SOURCE_REF"]):
               raise SystemExit("sandbox source must be a full Git commit")
           with Path(output).open("a", encoding="utf-8") as handle:
               for name, value in values.items():
                   handle.write(f"{name}={value}\n")
           PY
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7 # v4.5.1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Resolve and verify exact self image digests
+        env:
+          ARTIFACT_REF: ${{ inputs.artifact_ref }}
+        run: |
+          set -euo pipefail
+          resolve_image() {
+            local image="$1"
+            local output_name="$2"
+            local tag="${image}:sha-${ARTIFACT_REF}"
+            local digest_ref revision commit_sha
+
+            docker pull --platform linux/amd64 "$tag"
+            digest_ref="$(docker image inspect "$tag" --format '{{index .RepoDigests 0}}')"
+            [[ "$digest_ref" =~ ^${image}@sha256:[0-9a-f]{64}$ ]] || {
+              echo "image did not resolve to an immutable digest: $tag -> $digest_ref" >&2
+              exit 1
+            }
+            revision="$(docker image inspect "$tag" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"
+            commit_sha="$(docker image inspect "$tag" --format '{{range .Config.Env}}{{println .}}{{end}}' | sed -n 's/^COMMIT_SHA=//p')"
+            test "$revision" = "$ARTIFACT_REF"
+            test "$commit_sha" = "$ARTIFACT_REF"
+            printf '%s=%s\n' "$output_name" "$digest_ref" >> "$GITHUB_ENV"
+          }
+
+          resolve_image ghcr.io/blueskyxn/dify-api DIFY_API_IMAGE_REF
+          resolve_image ghcr.io/blueskyxn/dify-web DIFY_WEB_IMAGE_REF
+          resolve_image ghcr.io/blueskyxn/dify-agent-backend DIFY_AGENT_IMAGE_REF
+          resolve_image ghcr.io/blueskyxn/dify-agent-local-sandbox DIFY_AGENT_RUNTIME_IMAGE_REF
 
       - name: Build the retained exact runtime assembly
         env:
@@ -131,6 +162,14 @@ jobs:
           docker build \
             --platform linux/amd64 \
             --build-arg "DIFY_SOURCE_MAIN_REF=$ARTIFACT_REF" \
+            --build-arg "DIFY_UPSTREAM_BASE_REF=$DIFY_UPSTREAM_BASE_REF" \
+            --build-arg "DIFY_API_IMAGE_REF=$DIFY_API_IMAGE_REF" \
+            --build-arg "DIFY_WEB_IMAGE_REF=$DIFY_WEB_IMAGE_REF" \
+            --build-arg "DIFY_AGENT_IMAGE_REF=$DIFY_AGENT_IMAGE_REF" \
+            --build-arg "DIFY_AGENT_RUNTIME_IMAGE_REF=$DIFY_AGENT_RUNTIME_IMAGE_REF" \
+            --build-arg "PLUGIN_DAEMON_IMAGE_REF=$PLUGIN_DAEMON_IMAGE_REF" \
+            --build-arg "SANDBOX_IMAGE_REF=$SANDBOX_IMAGE_REF" \
+            --build-arg "DIFY_SANDBOX_SOURCE_REF=$DIFY_SANDBOX_SOURCE_REF" \
             --tag "dify-hfs-runtime-source:$ARTIFACT_REF" \
             legacy-wrapper
 
@@ -140,7 +179,14 @@ jobs:
         run: |
           set -euo pipefail
           container="$(docker create "dify-hfs-runtime-source:$ARTIFACT_REF")"
-          trap 'docker rm -f "$container" >/dev/null 2>&1 || true' EXIT
+          api_container=""
+          cleanup() {
+            docker rm -f "$container" >/dev/null 2>&1 || true
+            if [[ -n "$api_container" ]]; then
+              docker rm -f "$api_container" >/dev/null 2>&1 || true
+            fi
+          }
+          trap cleanup EXIT
           runtime_root="$RUNNER_TEMP/dify-runtime-root"
           mkdir -p "$runtime_root"
           paths=(
@@ -161,6 +207,18 @@ jobs:
           for path in "${paths[@]}"; do
             mkdir -p "$runtime_root/$(dirname "$path")"
             docker cp "$container:/$path" "$runtime_root/$path"
+          done
+
+          api_container="$(docker create "$DIFY_API_IMAGE_REF")"
+          mkdir -p "$runtime_root/usr/local/share"
+          docker cp "$api_container:/usr/local/share/nltk_data" "$runtime_root/usr/local/share/nltk_data"
+          for resource in \
+            tokenizers/punkt_tab \
+            taggers/averaged_perceptron_tagger_eng \
+            corpora/stopwords; do
+            resource_root="$runtime_root/usr/local/share/nltk_data/$resource"
+            test -d "$resource_root"
+            find "$resource_root" -type f -print -quit | grep -q .
           done
           echo "RUNTIME_ROOT=$runtime_root" >> "$GITHUB_ENV"
 

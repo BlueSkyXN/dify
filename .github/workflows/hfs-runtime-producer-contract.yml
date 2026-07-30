@@ -49,6 +49,23 @@ jobs:
           test -f consumer/scripts/package-dify-runtime-artifact.py
           test -f consumer/docker/dify_artifact_contract.py
           test -f consumer/scripts/static-check.sh
+          grep -Fq 'usr/local/share/nltk_data' consumer/scripts/package-dify-runtime-artifact.py
+          grep -Fq 'punkt_tab' consumer/scripts/package-dify-runtime-artifact.py
+          grep -Fq 'averaged_perceptron_tagger_eng' consumer/docker/dify_artifact_contract.py
+
+      - name: Verify exact-image and NLTK producer bindings
+        shell: bash
+        run: |
+          set -euo pipefail
+          workflow=.github/workflows/publish-hfs-runtime.yml
+          grep -Fq "local tag=\"\${image}:sha-\${ARTIFACT_REF}\"" "$workflow"
+          grep -Fq 'org.opencontainers.image.revision' "$workflow"
+          grep -Fq "sed -n 's/^COMMIT_SHA=//p'" "$workflow"
+          grep -Fq -- "--build-arg \"DIFY_API_IMAGE_REF=\$DIFY_API_IMAGE_REF\"" "$workflow"
+          grep -Fq -- "--build-arg \"DIFY_WEB_IMAGE_REF=\$DIFY_WEB_IMAGE_REF\"" "$workflow"
+          grep -Fq -- "--build-arg \"DIFY_AGENT_IMAGE_REF=\$DIFY_AGENT_IMAGE_REF\"" "$workflow"
+          grep -Fq -- "--build-arg \"DIFY_AGENT_RUNTIME_IMAGE_REF=\$DIFY_AGENT_RUNTIME_IMAGE_REF\"" "$workflow"
+          grep -Fq 'api_container:/usr/local/share/nltk_data' "$workflow"
 
       - name: Run the selected consumer contract
         working-directory: consumer
