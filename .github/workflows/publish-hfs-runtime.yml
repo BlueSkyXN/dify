@@ -17,23 +17,29 @@ on:
         type: string
 
 permissions:
-  contents: write
+  contents: read
   packages: read
 
 concurrency:
-  group: dify-hfs-runtime-${{ inputs.artifact_ref }}
+  group: dify-hfs-runtime-release-${{ inputs.release_tag }}
   cancel-in-progress: false
 
 env:
   CONSUMER_REPOSITORY: BlueSkyXN/Dify-all-in-one-HFS
-  CONSUMER_COMMIT: 71e4facf09e8d098f70c5b4d61523c3e54e91936
+  CONSUMER_COMMIT: 9885d17ba8f42e29e05e15e9cc9f8e57f0e32dc9
   LEGACY_BUILD_COMMIT: 1d5ce9343ec09f5d95a837816e312bc0256a1ebc
-  DIFY_UPSTREAM_BASE_REF: 5e6154fdd1a68ea0ef8d915cf263dbf795870f5f
+  DIFY_UPSTREAM_BASE_REF: f9966c2ee4c7c4a4bc3680155085f9cf521a3ed3
   MAX_ARCHIVE_BYTES: "4294967296"
 
 jobs:
   publish:
-    if: inputs.confirm_publish == 'PUBLISH_DIFY_HFS_RUNTIME'
+    if: >-
+      github.repository == 'BlueSkyXN/dify' &&
+      github.ref == 'refs/heads/main' &&
+      inputs.confirm_publish == 'PUBLISH_DIFY_HFS_RUNTIME'
+    permissions:
+      contents: write
+      packages: read
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
@@ -43,6 +49,9 @@ jobs:
           RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           set -euo pipefail
+          test "$GITHUB_REPOSITORY" = BlueSkyXN/dify
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_SHA" = "$ARTIFACT_REF"
           [[ "$ARTIFACT_REF" =~ ^[0-9a-f]{40}$ ]] || {
             echo "artifact_ref must be a full lowercase Git commit" >&2
             exit 2
@@ -58,10 +67,23 @@ jobs:
       - name: Checkout exact producer source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
-          ref: ${{ inputs.artifact_ref }}
+          ref: ${{ github.sha }}
           path: producer-source
-          fetch-depth: 1
+          fetch-depth: 0
           persist-credentials: false
+
+      - name: Authorize exact producer main and upstream provenance
+        env:
+          ARTIFACT_REF: ${{ inputs.artifact_ref }}
+        run: |
+          set -euo pipefail
+          git -C producer-source fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          test "$(git -C producer-source rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git -C producer-source rev-parse origin/main)" = "$GITHUB_SHA"
+          test "$GITHUB_SHA" = "$ARTIFACT_REF"
+          test -z "$(git -C producer-source status --porcelain=v1 --untracked-files=all)"
+          git -C producer-source cat-file -e "$DIFY_UPSTREAM_BASE_REF^{commit}"
+          git -C producer-source merge-base --is-ancestor "$DIFY_UPSTREAM_BASE_REF" "$ARTIFACT_REF"
 
       - name: Checkout immutable consumer contract
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -257,7 +279,7 @@ jobs:
             --max-bytes "$MAX_ARCHIVE_BYTES"
           echo "OUTPUT_DIR=$output" >> "$GITHUB_ENV"
 
-      - name: Create immutable Release and upload without overwrite
+      - name: Create one complete immutable Release or accept an exact existing one
         env:
           ARTIFACT_REF: ${{ inputs.artifact_ref }}
           RELEASE_TAG: ${{ inputs.release_tag }}
@@ -266,26 +288,47 @@ jobs:
         run: |
           set -euo pipefail
           artifact="dify-runtime-$ARTIFACT_REF.tar.gz"
-          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            target="$(gh release view "$RELEASE_TAG" --json targetCommitish --jq .targetCommitish)"
-            test "$target" = "$ARTIFACT_REF"
-          else
-            gh release create "$RELEASE_TAG" \
-              --target "$ARTIFACT_REF" \
-              --title "Dify HFS runtime ${ARTIFACT_REF::12}" \
-              --notes "Immutable HFS runtime assembled from the reviewed component pins for $ARTIFACT_REF."
+
+          resolve_remote_tag() {
+            local lines
+            lines="$(git -C producer-source ls-remote --tags origin \
+              "refs/tags/$RELEASE_TAG" \
+              "refs/tags/$RELEASE_TAG^{}")"
+            awk -v direct="refs/tags/$RELEASE_TAG" -v peeled="refs/tags/$RELEASE_TAG^{}" '
+              $2 == direct { direct_sha = $1 }
+              $2 == peeled { peeled_sha = $1 }
+              END { if (peeled_sha != "") print peeled_sha; else if (direct_sha != "") print direct_sha }
+            ' <<<"$lines"
+          }
+
+          tag_target="$(resolve_remote_tag)"
+          if [[ -n "$tag_target" && "$tag_target" != "$ARTIFACT_REF" ]]; then
+            echo "release tag already points to a different commit" >&2
+            exit 1
           fi
-          existing="$(gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name')"
-          for file in "$artifact" manifest.json SHA256SUMS.txt; do
-            if grep -Fx "$file" <<<"$existing" >/dev/null; then
-              echo "refusing to overwrite existing Release asset: $file" >&2
-              exit 1
+
+          if release_json="$(gh release view "$RELEASE_TAG" --json targetCommitish,isDraft,assets 2>/dev/null)"; then
+            test "$(jq -r .targetCommitish <<<"$release_json")" = "$ARTIFACT_REF"
+            test "$(jq -r .isDraft <<<"$release_json")" = false
+            actual_assets="$(jq -r '[.assets[].name] | sort | join("\n")' <<<"$release_json")"
+            expected_assets="$(printf '%s\n' "$artifact" SHA256SUMS.txt manifest.json | sort)"
+            test "$actual_assets" = "$expected_assets"
+          else
+            create_args=(
+              "$RELEASE_TAG"
+              "$OUTPUT_DIR/$artifact"
+              "$OUTPUT_DIR/SHA256SUMS.txt"
+              "$OUTPUT_DIR/manifest.json"
+              --target "$ARTIFACT_REF"
+              --title "Dify HFS runtime ${ARTIFACT_REF::12}"
+              --notes "Immutable HFS runtime assembled from the reviewed component pins for $ARTIFACT_REF."
+              --latest=false
+            )
+            if [[ -n "$tag_target" ]]; then
+              create_args+=(--verify-tag)
             fi
-          done
-          gh release upload "$RELEASE_TAG" \
-            "$OUTPUT_DIR/$artifact" \
-            "$OUTPUT_DIR/manifest.json" \
-            "$OUTPUT_DIR/SHA256SUMS.txt"
+            gh release create "${create_args[@]}"
+          fi
 
       - name: Read back every Release asset
         env:
@@ -296,6 +339,21 @@ jobs:
         run: |
           set -euo pipefail
           artifact="dify-runtime-$ARTIFACT_REF.tar.gz"
+          release_json="$(gh release view "$RELEASE_TAG" --json targetCommitish,isDraft,assets)"
+          test "$(jq -r .targetCommitish <<<"$release_json")" = "$ARTIFACT_REF"
+          test "$(jq -r .isDraft <<<"$release_json")" = false
+          actual_assets="$(jq -r '[.assets[].name] | sort | join("\n")' <<<"$release_json")"
+          expected_assets="$(printf '%s\n' "$artifact" SHA256SUMS.txt manifest.json | sort)"
+          test "$actual_assets" = "$expected_assets"
+          tag_lines="$(git -C producer-source ls-remote --tags origin \
+            "refs/tags/$RELEASE_TAG" \
+            "refs/tags/$RELEASE_TAG^{}")"
+          tag_target="$(awk -v direct="refs/tags/$RELEASE_TAG" -v peeled="refs/tags/$RELEASE_TAG^{}" '
+            $2 == direct { direct_sha = $1 }
+            $2 == peeled { peeled_sha = $1 }
+            END { if (peeled_sha != "") print peeled_sha; else if (direct_sha != "") print direct_sha }
+          ' <<<"$tag_lines")"
+          test "$tag_target" = "$ARTIFACT_REF"
           readback="$RUNNER_TEMP/release-readback"
           mkdir -p "$readback"
           gh release download "$RELEASE_TAG" \
