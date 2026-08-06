@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Align retained HFS runtime assertions with exact producer dependency pins."""
+"""Align the retained HFS runtime build with the exact producer contract."""
 
 from __future__ import annotations
 
@@ -10,10 +10,14 @@ from pathlib import Path
 
 
 class ContractError(ValueError):
-    """Raised when the retained runtime dependency contract cannot be aligned."""
+    """Raised when the retained runtime build contract cannot be aligned."""
 
 
 _PIN_RE = re.compile(r"^graphon==([A-Za-z0-9][A-Za-z0-9._+-]*)$")
+_PYTHONUNBUFFERED_RE = re.compile(r"^ENV PYTHONUNBUFFERED=1$", re.MULTILINE)
+_PYTHONDONTWRITEBYTECODE_RE = re.compile(
+    r"^ENV PYTHONDONTWRITEBYTECODE=(?P<value>\S+)$", re.MULTILINE
+)
 _ASSERTION_PATTERNS = {
     "api": re.compile(
         r"(?P<prefix>/app/api/\.venv/bin/python -c \'import flask; from importlib\.metadata import version; "
@@ -66,6 +70,47 @@ def _replace_assertion(text: str, component: str, version: str) -> str:
     return updated
 
 
+def _disable_bytecode_cache_writes(text: str) -> str:
+    directives = list(_PYTHONDONTWRITEBYTECODE_RE.finditer(text))
+    if directives:
+        if len(directives) != 1 or directives[0].group("value") != "1":
+            raise ContractError(
+                "retained Dockerfile must contain at most one "
+                "ENV PYTHONDONTWRITEBYTECODE=1 directive"
+            )
+        updated = text
+        directive = directives[0]
+    else:
+        updated, count = _PYTHONUNBUFFERED_RE.subn(
+            "ENV PYTHONUNBUFFERED=1\nENV PYTHONDONTWRITEBYTECODE=1", text
+        )
+        if count != 1:
+            raise ContractError(
+                "retained Dockerfile must contain exactly one "
+                "ENV PYTHONUNBUFFERED=1 insertion anchor"
+            )
+        directive = _PYTHONDONTWRITEBYTECODE_RE.search(updated)
+        if (
+            directive is None
+        ):  # pragma: no cover - guarded by the exact replacement above
+            raise ContractError(
+                "failed to disable retained Python bytecode cache writes"
+            )
+
+    assertion_positions = [
+        match.start()
+        for pattern in _ASSERTION_PATTERNS.values()
+        if (match := pattern.search(updated)) is not None
+    ]
+    if len(assertion_positions) != len(_ASSERTION_PATTERNS) or directive.start() > min(
+        assertion_positions
+    ):
+        raise ContractError(
+            "ENV PYTHONDONTWRITEBYTECODE=1 must precede retained Python checks"
+        )
+    return updated
+
+
 def align_dependency_assertions(
     dockerfile: Path,
     api_pyproject: Path,
@@ -79,6 +124,7 @@ def align_dependency_assertions(
     original = dockerfile.read_text(encoding="utf-8")
     updated = _replace_assertion(original, "api", api_version)
     updated = _replace_assertion(updated, "agent", agent_version)
+    updated = _disable_bytecode_cache_writes(updated)
     changed = updated != original
     if changed:
         dockerfile.write_text(updated, encoding="utf-8")
@@ -103,7 +149,9 @@ def main() -> None:
 
     state = "updated" if changed else "already aligned"
     print(
-        f"retained graphon assertions {state}: api={api_version}, agent={agent_version}"
+        "retained runtime contract "
+        f"{state}: api_graphon={api_version}, agent_graphon={agent_version}, "
+        "python_bytecode=disabled"
     )
 
 

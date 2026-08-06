@@ -75,7 +75,7 @@ jobs:
           grep -Fq -- "--build-arg \"DIFY_AGENT_RUNTIME_IMAGE_REF=\$DIFY_AGENT_RUNTIME_IMAGE_REF\"" "$workflow"
           grep -Fq 'api_container:/usr/local/share/nltk_data' "$workflow"
 
-      - name: Verify retained runtime dependency alignment
+      - name: Verify retained runtime build alignment
         shell: bash
         run: |
           set -euo pipefail
@@ -97,6 +97,7 @@ jobs:
             --dockerfile legacy-wrapper/Dockerfile \
             --api-pyproject api/pyproject.toml \
             --agent-pyproject dify-agent/pyproject.toml
+          test "$(grep -Fc 'ENV PYTHONDONTWRITEBYTECODE=1' legacy-wrapper/Dockerfile)" -eq 1
           git -C legacy-wrapper diff --check
 
       - name: Verify exact-main and atomic Release safety
