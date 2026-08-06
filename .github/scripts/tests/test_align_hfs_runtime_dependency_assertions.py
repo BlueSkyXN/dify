@@ -15,6 +15,7 @@ from align_hfs_runtime_dependency_assertions import (
 
 
 _DOCKERFILE = """\
+ENV PYTHONUNBUFFERED=1
 RUN /app/api/.venv/bin/python -c 'import flask; from importlib.metadata import version; assert version("graphon") == "0.6.0"' \\
     && /opt/dify-agent/.venv/bin/python -c 'import dify_agent.server.app; import shellctl.client; from importlib.metadata import version; assert version("graphon") == "0.5.2"'
 """
@@ -55,6 +56,11 @@ class AlignHfsRuntimeDependencyAssertionsTest(unittest.TestCase):
         text = self.dockerfile.read_text(encoding="utf-8")
         self.assertIn('version("graphon") == "0.7.0"', text)
         self.assertIn('version("graphon") == "0.5.2"', text)
+        self.assertEqual(text.count("ENV PYTHONDONTWRITEBYTECODE=1"), 1)
+        self.assertLess(
+            text.index("ENV PYTHONDONTWRITEBYTECODE=1"),
+            text.index("/app/api/.venv/bin/python"),
+        )
 
         _, _, changed_again = align_dependency_assertions(
             self.dockerfile,
@@ -77,6 +83,22 @@ class AlignHfsRuntimeDependencyAssertionsTest(unittest.TestCase):
         )
 
         with self.assertRaisesRegex(ContractError, "exactly one graphon== pin"):
+            align_dependency_assertions(
+                self.dockerfile, self.api_pyproject, self.agent_pyproject
+            )
+
+    def test_rejects_conflicting_bytecode_policy(self) -> None:
+        self.dockerfile.write_text(
+            _DOCKERFILE.replace(
+                "ENV PYTHONUNBUFFERED=1\n",
+                "ENV PYTHONUNBUFFERED=1\nENV PYTHONDONTWRITEBYTECODE=0\n",
+            ),
+            encoding="utf-8",
+        )
+
+        with self.assertRaisesRegex(
+            ContractError, "ENV PYTHONDONTWRITEBYTECODE=1 directive"
+        ):
             align_dependency_assertions(
                 self.dockerfile, self.api_pyproject, self.agent_pyproject
             )

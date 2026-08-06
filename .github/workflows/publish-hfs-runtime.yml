@@ -103,7 +103,7 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Align retained runtime dependency assertions
+      - name: Align retained runtime build contract
         run: |
           python3 producer-source/.github/scripts/align_hfs_runtime_dependency_assertions.py \
             --dockerfile legacy-wrapper/Dockerfile \
