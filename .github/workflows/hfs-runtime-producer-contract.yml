@@ -3,13 +3,21 @@ name: HFS runtime producer contract
 on:
   pull_request:
     paths:
+      - .github/scripts/align_hfs_runtime_dependency_assertions.py
+      - .github/scripts/tests/test_align_hfs_runtime_dependency_assertions.py
       - .github/workflows/publish-hfs-runtime.yml
       - .github/workflows/hfs-runtime-producer-contract.yml
+      - api/pyproject.toml
+      - dify-agent/pyproject.toml
   push:
     branches: [main]
     paths:
+      - .github/scripts/align_hfs_runtime_dependency_assertions.py
+      - .github/scripts/tests/test_align_hfs_runtime_dependency_assertions.py
       - .github/workflows/publish-hfs-runtime.yml
       - .github/workflows/hfs-runtime-producer-contract.yml
+      - api/pyproject.toml
+      - dify-agent/pyproject.toml
   workflow_dispatch:
 
 permissions:
@@ -66,6 +74,30 @@ jobs:
           grep -Fq -- "--build-arg \"DIFY_AGENT_IMAGE_REF=\$DIFY_AGENT_IMAGE_REF\"" "$workflow"
           grep -Fq -- "--build-arg \"DIFY_AGENT_RUNTIME_IMAGE_REF=\$DIFY_AGENT_RUNTIME_IMAGE_REF\"" "$workflow"
           grep -Fq 'api_container:/usr/local/share/nltk_data' "$workflow"
+
+      - name: Verify retained runtime dependency alignment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover \
+            -s .github/scripts/tests \
+            -p 'test_align_hfs_runtime_dependency_assertions.py'
+
+          workflow=.github/workflows/publish-hfs-runtime.yml
+          legacy_build_commit="$(sed -n 's/^  LEGACY_BUILD_COMMIT: //p' "$workflow")"
+          [[ "$legacy_build_commit" =~ ^[0-9a-f]{40}$ ]]
+          grep -Fq 'python3 producer-source/.github/scripts/align_hfs_runtime_dependency_assertions.py' "$workflow"
+
+          git init --quiet legacy-wrapper
+          git -C legacy-wrapper remote add origin https://github.com/BlueSkyXN/Dify-all-in-one-HFS.git
+          git -C legacy-wrapper fetch --quiet --depth=1 origin "$legacy_build_commit"
+          git -C legacy-wrapper checkout --quiet --detach FETCH_HEAD
+          test "$(git -C legacy-wrapper rev-parse HEAD)" = "$legacy_build_commit"
+          python3 .github/scripts/align_hfs_runtime_dependency_assertions.py \
+            --dockerfile legacy-wrapper/Dockerfile \
+            --api-pyproject api/pyproject.toml \
+            --agent-pyproject dify-agent/pyproject.toml
+          git -C legacy-wrapper diff --check
 
       - name: Verify exact-main and atomic Release safety
         shell: bash

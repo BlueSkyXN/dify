@@ -103,6 +103,13 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
+      - name: Align retained runtime dependency assertions
+        run: |
+          python3 producer-source/.github/scripts/align_hfs_runtime_dependency_assertions.py \
+            --dockerfile legacy-wrapper/Dockerfile \
+            --api-pyproject producer-source/api/pyproject.toml \
+            --agent-pyproject producer-source/dify-agent/pyproject.toml
+
       - name: Bind retained external component pins
         env:
           ARTIFACT_REF: ${{ inputs.artifact_ref }}
