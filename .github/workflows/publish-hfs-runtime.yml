@@ -26,10 +26,10 @@ concurrency:
 
 env:
   CONSUMER_REPOSITORY: BlueSkyXN/Dify-all-in-one-HFS
-  CONSUMER_COMMIT: 9885d17ba8f42e29e05e15e9cc9f8e57f0e32dc9
+  CONSUMER_COMMIT: 2be9b08b9e1088544438e549580f140e1878bc96
   LEGACY_BUILD_COMMIT: 1d5ce9343ec09f5d95a837816e312bc0256a1ebc
-  DIFY_UPSTREAM_BASE_REF: f9966c2ee4c7c4a4bc3680155085f9cf521a3ed3
-  MAX_ARCHIVE_BYTES: "4294967296"
+  DIFY_UPSTREAM_BASE_REF: 05c73860131fb734e3577bbf4256a5f288fdfd79
+  MAX_ARCHIVE_BYTES: '4294967296'
 
 jobs:
   publish:
@@ -65,7 +65,7 @@ jobs:
           }
 
       - name: Checkout exact producer source
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
           path: producer-source
@@ -86,7 +86,7 @@ jobs:
           git -C producer-source merge-base --is-ancestor "$DIFY_UPSTREAM_BASE_REF" "$ARTIFACT_REF"
 
       - name: Checkout immutable consumer contract
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ env.CONSUMER_REPOSITORY }}
           ref: ${{ env.CONSUMER_COMMIT }}
@@ -95,7 +95,7 @@ jobs:
           persist-credentials: false
 
       - name: Checkout the retained reviewed image assembly context
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ env.CONSUMER_REPOSITORY }}
           ref: ${{ env.LEGACY_BUILD_COMMIT }}
@@ -141,7 +141,7 @@ jobs:
           PY
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7 # v4.5.1
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
