@@ -26,9 +26,11 @@ concurrency:
 
 env:
   CONSUMER_REPOSITORY: BlueSkyXN/Dify-all-in-one-HFS
-  CONSUMER_COMMIT: 2be9b08b9e1088544438e549580f140e1878bc96
+  CONSUMER_COMMIT: efd688e862615b476115932b6b5604fe320abfc8
   LEGACY_BUILD_COMMIT: 1d5ce9343ec09f5d95a837816e312bc0256a1ebc
-  DIFY_UPSTREAM_BASE_REF: 90d6046345a4d53ca3e1dcd9a419cca49a537858
+  DIFY_UPSTREAM_BASE_REF: 7a7d8fe19e068396d509331713829f8fdf8ab4a9
+  # linux/amd64 child digest for upstream's 0.6.10-local multi-arch tag.
+  PLUGIN_DAEMON_IMAGE_REF: langgenius/dify-plugin-daemon@sha256:0b8f1f1e766826352d868aaf8c9eeeee8e37a3a3b023044ed8ab0d145f853cdf
   MAX_ARCHIVE_BYTES: '4294967296'
 
 jobs:
@@ -118,6 +120,7 @@ jobs:
           test "$(git -C producer-source rev-parse HEAD)" = "$ARTIFACT_REF"
           test "$(git -C consumer rev-parse HEAD)" = "$CONSUMER_COMMIT"
           test "$(git -C legacy-wrapper rev-parse HEAD)" = "$LEGACY_BUILD_COMMIT"
+          [[ "$PLUGIN_DAEMON_IMAGE_REF" =~ ^[^@[:space:]]+@sha256:[0-9a-f]{64}$ ]]
           python3 - "$GITHUB_ENV" <<'PY'
           import re
           import sys
@@ -126,7 +129,6 @@ jobs:
           output = sys.argv[1]
           dockerfile = Path("legacy-wrapper/Dockerfile").read_text(encoding="utf-8")
           names = (
-              "PLUGIN_DAEMON_IMAGE_REF",
               "SANDBOX_IMAGE_REF",
               "DIFY_SANDBOX_SOURCE_REF",
           )
@@ -136,10 +138,9 @@ jobs:
               if not match:
                   raise SystemExit(f"legacy build context is missing {name}")
               values[name] = match.group(1)
-          image_names = names[:2]
           image_pattern = re.compile(r"^[^@\s]+@sha256:[0-9a-f]{64}$")
-          if any(not image_pattern.fullmatch(values[name]) for name in image_names):
-              raise SystemExit("every retained external runtime image must be digest-pinned")
+          if not image_pattern.fullmatch(values["SANDBOX_IMAGE_REF"]):
+              raise SystemExit("the retained Sandbox runtime image must be digest-pinned")
           if not re.fullmatch(r"[0-9a-f]{40}", values["DIFY_SANDBOX_SOURCE_REF"]):
               raise SystemExit("sandbox source must be a full Git commit")
           with Path(output).open("a", encoding="utf-8") as handle:

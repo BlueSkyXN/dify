@@ -73,6 +73,7 @@ jobs:
           grep -Fq -- "--build-arg \"DIFY_WEB_IMAGE_REF=\$DIFY_WEB_IMAGE_REF\"" "$workflow"
           grep -Fq -- "--build-arg \"DIFY_AGENT_IMAGE_REF=\$DIFY_AGENT_IMAGE_REF\"" "$workflow"
           grep -Fq -- "--build-arg \"DIFY_AGENT_RUNTIME_IMAGE_REF=\$DIFY_AGENT_RUNTIME_IMAGE_REF\"" "$workflow"
+          grep -Fq 'PLUGIN_DAEMON_IMAGE_REF: langgenius/dify-plugin-daemon@sha256:0b8f1f1e766826352d868aaf8c9eeeee8e37a3a3b023044ed8ab0d145f853cdf' "$workflow"
           grep -Fq 'api_container:/usr/local/share/nltk_data' "$workflow"
 
       - name: Verify retained runtime build alignment
