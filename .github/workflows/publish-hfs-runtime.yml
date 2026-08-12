@@ -26,7 +26,7 @@ concurrency:
 
 env:
   CONSUMER_REPOSITORY: BlueSkyXN/Dify-all-in-one-HFS
-  CONSUMER_COMMIT: efd688e862615b476115932b6b5604fe320abfc8
+  CONSUMER_COMMIT: 317c0eee27f55a34ce4a30b78056593d131abb8d
   LEGACY_BUILD_COMMIT: 1d5ce9343ec09f5d95a837816e312bc0256a1ebc
   DIFY_UPSTREAM_BASE_REF: 6a37e1538a7bbe97dcd76570a8bfe63c0e5b3c43
   # linux/amd64 child digest for upstream's 0.6.10-local multi-arch tag.
