@@ -48,7 +48,10 @@ fallback to the retired Sandbox protocol.
 
 ```python
 from dify_agent.runtime.compositor_factory import create_default_layer_providers
-from dify_agent.runtime_backend.profile import RuntimeBackendSettings, create_runtime_backend_profile
+from dify_agent.runtime_backend.profile import (
+    RuntimeBackendSettings,
+    create_runtime_backend_profile,
+)
 
 runtime_backend_profile = create_runtime_backend_profile(
     RuntimeBackendSettings(
