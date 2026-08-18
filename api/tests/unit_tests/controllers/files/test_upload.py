@@ -351,7 +351,7 @@ class TestPluginUploadFileApi:
             },
             file=dummy_file,
         )
-        mock_tool_file_manager.return_value.create_file_by_raw.return_value = _tool_file()
+        mock_tool_file_manager.return_value.create_file_by_raw.return_value = DummyToolFile()
         mock_tool_file_manager.sign_file.return_value = "signed-url"
 
         unwrap(module.PluginUploadFileApi().post)(module.PluginUploadFileApi())
@@ -360,7 +360,7 @@ class TestPluginUploadFileApi:
         assert mock_verify.call_args.kwargs["max_size"] == 4
         assert mock_tool_file_manager.return_value.create_file_by_raw.call_args.kwargs["file_binary"] == b"data"
 
-    @patch.object(module, "get_user", return_value=_end_user())
+    @patch.object(module, "get_user", return_value=DummyUser())
     @patch.object(module, "verify_plugin_file_signature", return_value=True)
     @patch.object(module, "ToolFileManager")
     def test_signed_max_size_rejects_oversized_file_before_creation(
@@ -387,7 +387,7 @@ class TestPluginUploadFileApi:
 
         mock_tool_file_manager.assert_not_called()
 
-    @patch.object(module, "get_user", return_value=_end_user())
+    @patch.object(module, "get_user", return_value=DummyUser())
     @patch.object(module, "verify_plugin_file_signature", return_value=True)
     @patch.object(module, "ToolFileManager")
     def test_unsupported_file_type(
