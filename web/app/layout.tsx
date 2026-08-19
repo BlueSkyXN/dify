@@ -10,7 +10,7 @@ import { getDatasetMap } from '@/env'
 import { SystemFeaturesBootstrapBoundary } from '@/features/system-features/bootstrap-boundary'
 import {
   getSystemFeaturesQueryClient,
-  systemFeaturesServerQueryOptions,
+  prefetchSystemFeatures,
 } from '@/features/system-features/server'
 import { getLocaleOnServer } from '@/i18n-config/server'
 import { headers } from '@/next/headers'
@@ -31,14 +31,12 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const datasetMap = getDatasetMap()
-  const queryClient = getSystemFeaturesQueryClient()
-  const systemFeaturesQuery = systemFeaturesServerQueryOptions()
   const [locale, requestHeaders] = await Promise.all([
     getLocaleOnServer(),
     headers(),
-    queryClient.prefetchQuery(systemFeaturesQuery),
+    prefetchSystemFeatures(),
   ])
-  const dehydratedState = dehydrate(queryClient)
+  const dehydratedState = dehydrate(getSystemFeaturesQueryClient())
   const nonce = IS_PROD ? (requestHeaders.get('x-nonce') ?? undefined) : undefined
 
   return (
