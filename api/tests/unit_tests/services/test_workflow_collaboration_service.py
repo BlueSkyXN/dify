@@ -9,7 +9,6 @@ from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
 from core.rbac import RBACPermission, RBACResourceScope
-from models.account import Account, Tenant
 from models.base import TypeBase
 from models.model import App, AppMode, IconType
 from repositories.workflow_collaboration_repository import WorkflowCollaborationRepository
