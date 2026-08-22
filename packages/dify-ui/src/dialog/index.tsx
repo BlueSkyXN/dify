@@ -10,6 +10,7 @@ const DialogTrigger = BaseDialog.Trigger
 const DialogTitle = BaseDialog.Title
 const DialogDescription = BaseDialog.Description
 const DialogPortal = BaseDialog.Portal
+const DialogClose = BaseDialog.Close
 const createDialogHandle = BaseDialog.createHandle
 
 type DialogProps<Payload = unknown> = BaseDialog.Root.Props<Payload>
@@ -18,6 +19,7 @@ type DialogTriggerProps<Payload = unknown> = BaseDialog.Trigger.Props<Payload>
 type DialogTitleProps = BaseDialog.Title.Props
 type DialogDescriptionProps = BaseDialog.Description.Props
 type DialogPortalProps = BaseDialog.Portal.Props
+type DialogCloseProps = BaseDialog.Close.Props
 
 type DialogBackdropProps = Omit<BaseDialog.Backdrop.Props, 'className'> & {
   className?: string
@@ -107,6 +109,7 @@ export {
   createDialogHandle,
   Dialog,
   DialogBackdrop,
+  DialogClose,
   DialogCloseButton,
   DialogContent,
   DialogDescription,
@@ -120,6 +123,7 @@ export {
 export type {
   DialogBackdropProps,
   DialogCloseButtonProps,
+  DialogCloseProps,
   DialogContentProps,
   DialogDescriptionProps,
   DialogHandle,

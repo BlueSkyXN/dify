@@ -1,6 +1,6 @@
 'use client'
 
-import type { ReactNode } from 'react'
+import type { ReactNode, Ref } from 'react'
 import { cn } from '@langgenius/dify-ui/cn'
 import {
   DropdownMenu,
@@ -54,6 +54,7 @@ import SupportMenu from './support-menu'
 type HelpMenuProps = {
   triggerIcon?: ReactNode
   triggerClassName?: string
+  triggerRef?: Ref<HTMLButtonElement>
 }
 
 const defaultTriggerIcon = (
@@ -84,7 +85,11 @@ const MenuSwitchIndicator = ({ checked }: { checked: boolean }) => (
   />
 )
 
-const HelpMenu = ({ triggerIcon = defaultTriggerIcon, triggerClassName }: HelpMenuProps) => {
+const HelpMenu = ({
+  triggerIcon = defaultTriggerIcon,
+  triggerClassName,
+  triggerRef,
+}: HelpMenuProps) => {
   const { t } = useTranslation()
   const docLink = useDocLink()
   const { data: systemFeatures } = useSuspenseQuery(systemFeaturesQueryOptions())
@@ -148,6 +153,7 @@ const HelpMenu = ({ triggerIcon = defaultTriggerIcon, triggerClassName }: HelpMe
     <>
       <DropdownMenu onOpenChange={handleOpenChange}>
         <DropdownMenuTrigger
+          ref={triggerRef}
           aria-label={t(($) => $['mainNav.help.openMenu'], { ns: 'common' })}
           data-learn-dify-help-target
           className={cn(
