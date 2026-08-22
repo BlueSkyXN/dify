@@ -152,12 +152,18 @@ def _context() -> DifyExecutionContextLayerConfig:
     )
 
 
-def _service(commands: _Commands, *, configured: bool = True) -> tuple[BindingFileService, _Backend]:
+def _service(
+    commands: _Commands,
+    *,
+    configured: bool = True,
+    download_command_timeout_seconds: float = 210.0,
+) -> tuple[BindingFileService, _Backend]:
     backend = _Backend(lease=cast(RuntimeLease, _Lease(commands=commands)))
     service = BindingFileService(
         execution_bindings=backend,  # pyright: ignore[reportArgumentType]
         agent_stub_api_base_url="http://stub/agent-stub" if configured else None,
         agent_stub_token_factory=(lambda execution_context, *, session_id: "secret-jwe") if configured else None,
+        download_command_timeout_seconds=download_command_timeout_seconds,
     )
     return service, backend
 
@@ -181,6 +187,7 @@ def _local_service(tmp_path: Path) -> tuple[BindingFileService, _Backend, _Local
         execution_bindings=backend,  # pyright: ignore[reportArgumentType]
         agent_stub_api_base_url=None,
         agent_stub_token_factory=None,
+        download_command_timeout_seconds=210.0,
     )
     return service, backend, commands, workspace, home
 
@@ -388,7 +395,7 @@ async def test_download_shell_quotes_resolved_path_and_returns_only_reference_in
     commands = _Commands(
         outputs=[json.dumps({"transfer_method": "tool_file", "reference": _REFERENCE, "public_download_url": "bad"})]
     )
-    service, backend = _service(commands)
+    service, backend = _service(commands, download_command_timeout_seconds=123.5)
     issued_tokens: list[tuple[DifyExecutionContextLayerConfig, str | None]] = []
 
     def issue_token(execution_context: DifyExecutionContextLayerConfig, *, session_id: str | None) -> str:
@@ -422,7 +429,7 @@ async def test_download_shell_quotes_resolved_path_and_returns_only_reference_in
         "DIFY_AGENT_STUB_AUTH_JWE": "secret-jwe",
         "DIFY_AGENT_STUB_DRIVE_BASE": "/mnt/drive",
     }
-    assert timeout == pytest.approx(60.0, rel=0, abs=0.01)
+    assert timeout == pytest.approx(123.5, rel=0, abs=0.01)
     assert issued_tokens == [(context, None)]
     assert issued_tokens[0][0].model_dump() == context.model_dump()
     assert backend.releases == 1
@@ -584,6 +591,7 @@ async def test_download_maps_binding_acquire_errors(
         execution_bindings=backend,  # pyright: ignore[reportArgumentType]
         agent_stub_api_base_url="http://stub/agent-stub",
         agent_stub_token_factory=lambda execution_context, *, session_id: "secret-jwe",
+        download_command_timeout_seconds=210.0,
     )
 
     with pytest.raises(BindingFileError) as exc_info:
