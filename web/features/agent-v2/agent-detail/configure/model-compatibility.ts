@@ -77,6 +77,7 @@ const agentSuggestedModelPatterns: RegExp[] = [
 
   // deepseek
   /^deepseek[ .-]v4[ .-]pro$/i,
+  /^deepseek[ .-]v4[ .-]flash$/i,
 
   // qwen
   /^qwen[ .-]?3\.7[ .-]max$/i,
