@@ -41,6 +41,83 @@ describe('WorkflowProcessItem', () => {
     expect(screen.getByRole('button', { name: /Invalid upload file/ })).toBeInTheDocument()
   })
 
+  it('should keep the collapsed title compact when tracing exists', () => {
+    render(
+      <WorkflowProcessItem
+        data={
+          {
+            status: WorkflowRunningStatus.Failed,
+            tracing: [
+              { id: '1', title: 'Start' },
+              { id: '2', title: 'LLM' },
+            ],
+            error: 'Provider returned HTTP 500 with a very long error payload',
+          } as WorkflowProcess
+        }
+        expand={false}
+      />,
+    )
+
+    expect(screen.getByRole('button', { name: /LLM/ })).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /Provider returned HTTP 500/ }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('should prefer the latest node error in the collapsed title', () => {
+    render(
+      <WorkflowProcessItem
+        data={
+          {
+            status: WorkflowRunningStatus.Failed,
+            tracing: [{ id: '1', title: 'LLM', error: 'Rate limit exceeded' }],
+            error: 'Workflow failed',
+          } as WorkflowProcess
+        }
+        expand={false}
+      />,
+    )
+
+    expect(screen.getByRole('button', { name: /Rate limit exceeded/ })).toBeInTheDocument()
+  })
+
+  it('should preserve the full workflow error when expanded with tracing', () => {
+    render(
+      <WorkflowProcessItem
+        data={
+          {
+            status: WorkflowRunningStatus.Failed,
+            tracing: [{ id: '1', title: 'LLM' }],
+            error: 'Invalid upload file',
+          } as WorkflowProcess
+        }
+        expand={true}
+      />,
+    )
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Invalid upload file')
+  })
+
+  it('should preserve multiline workflow errors when expanded', () => {
+    render(
+      <WorkflowProcessItem
+        data={
+          {
+            status: WorkflowRunningStatus.Failed,
+            tracing: [{ id: '1', title: 'LLM' }],
+            error: 'line one\nline two',
+          } as WorkflowProcess
+        }
+        expand={true}
+      />,
+    )
+
+    const errorPanel = screen.getByRole('alert')
+    expect(errorPanel).toHaveTextContent('line one')
+    expect(errorPanel).toHaveTextContent('line two')
+    expect(errorPanel).toHaveClass('break-words', 'whitespace-pre-wrap')
+  })
+
   it('should render "Workflow Process" title and TracingPanel when expanded', () => {
     // We expect t('common.workflowProcess', { ns: 'workflow' }) to be called
     render(<WorkflowProcessItem data={mockData as WorkflowProcess} expand={true} />)
