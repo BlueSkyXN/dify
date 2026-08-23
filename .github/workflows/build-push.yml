@@ -141,7 +141,7 @@ jobs:
           retention-days: 1
 
   fork-build-validate:
-    if: github.repository != 'langgenius/dify'
+    if: github.repository != 'langgenius/dify' && github.repository != 'BlueSkyXN/dify'
     runs-on: ubuntu-24.04
     strategy:
       matrix:

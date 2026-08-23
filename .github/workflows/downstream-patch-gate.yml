@@ -1,0 +1,30 @@
+name: Downstream patch gate
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: downstream-patch-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    if: github.repository == 'BlueSkyXN/dify'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out full history
+        uses: actions/checkout@de0fac2e4500dabe0009e276f78a1e7ad412dfcc # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Validate downstream patch queue
+        run: python3 scripts/check-downstream-patches.py

@@ -1,0 +1,100 @@
+name: Build and push fork images
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: fork-build-push-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-push:
+    if: github.repository == 'BlueSkyXN/dify'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - service_name: build-api-amd64
+            image: ghcr.io/blueskyxn/dify-api
+            build_context: '{{defaultContext}}'
+            file: api/Dockerfile
+          - service_name: build-web-amd64
+            image: ghcr.io/blueskyxn/dify-web
+            build_context: '{{defaultContext}}'
+            file: web/Dockerfile
+          - service_name: build-agent-amd64
+            image: ghcr.io/blueskyxn/dify-agent-backend
+            build_context: '{{defaultContext}}'
+            file: dify-agent/Dockerfile
+          - service_name: build-agent-local-sandbox-amd64
+            image: ghcr.io/blueskyxn/dify-agent-local-sandbox
+            build_context: '{{defaultContext}}:dify-agent-runtime'
+            file: docker/Dockerfile
+
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ matrix.image }}
+          tags: |
+            type=raw,value=main
+            type=sha,format=long,prefix=sha-
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+
+      - name: Build and push image
+        id: build
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: ${{ matrix.build_context }}
+          file: ${{ matrix.file }}
+          platforms: linux/amd64
+          push: true
+          build-args: COMMIT_SHA=${{ github.sha }}
+          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.meta.outputs.tags }}
+
+      - name: Write digest metadata
+        env:
+          IMAGE: ${{ matrix.image }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/ghcr-images
+          jq -n \
+            --arg service "${{ matrix.service_name }}" \
+            --arg image "$IMAGE" \
+            --arg digest "$DIGEST" \
+            --arg commit_sha "$GITHUB_SHA" \
+            --arg main_tag "$IMAGE:main" \
+            --arg commit_tag "$IMAGE:sha-$GITHUB_SHA" \
+            '{service: $service, image: $image, digest: $digest, commit_sha: $commit_sha, tags: [$main_tag, $commit_tag], oci_revision: $commit_sha}' \
+            > "/tmp/ghcr-images/${GITHUB_SHA}.json"
+
+      - name: Upload digest metadata
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ghcr-images-${{ github.sha }}-${{ matrix.service_name }}
+          path: /tmp/ghcr-images/${{ github.sha }}.json
+          if-no-files-found: error
+          retention-days: 7

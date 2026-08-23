@@ -1,0 +1,35 @@
+name: Publish HFS runtime archive
+
+on:
+  workflow_dispatch:
+    inputs:
+      artifact_ref:
+        description: Exact BlueSkyXN/dify main commit represented by the runtime archive
+        required: true
+        type: string
+      release_tag:
+        description: New or existing immutable GitHub Release tag for this runtime
+        required: true
+        type: string
+      confirm_publish:
+        description: Type PUBLISH_DIFY_HFS_RUNTIME to authorize the Release write
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  produce:
+    permissions:
+      contents: write
+      packages: read
+    uses: BlueSkyXN/Dify-all-in-one-HFS/.github/workflows/produce-dify-runtime.yml@803b62dba6e5c7b565a01f650190c35578715887
+    with:
+      artifact_ref: ${{ inputs.artifact_ref }}
+      release_tag: ${{ inputs.release_tag }}
+      confirm_publish: ${{ inputs.confirm_publish }}
+      source_repository: BlueSkyXN/dify
+      upstream_base_ref: 8bdf702f737e31bc1f9e75def597e639f9b01f8c
+      contract_ref: 803b62dba6e5c7b565a01f650190c35578715887
