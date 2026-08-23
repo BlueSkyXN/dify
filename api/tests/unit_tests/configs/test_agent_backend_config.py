@@ -31,10 +31,11 @@ def test_binding_file_timeout_docker_settings_use_their_service_env_files() -> N
     )
     compose_template = (_REPOSITORY_ROOT / "docker/docker-compose-template.yaml").read_text(encoding="utf-8")
 
-    assert f"{_API_TIMEOUT_ENV}:" in compose_template
-    assert f"{_AGENT_TIMEOUT_ENV}:" in compose_template
-    assert f"{_AGENT_TIMEOUT_ENV}=" in agent_env_example
-    assert f"{_API_TIMEOUT_ENV}" not in agent_env_example
-    assert f"{_AGENT_TIMEOUT_ENV}" not in api_env_example
     assert f"{_API_TIMEOUT_ENV}=" not in root_env_example
     assert f"{_AGENT_TIMEOUT_ENV}=" not in root_env_example
+    assert f"{_API_TIMEOUT_ENV}=" in api_env_example
+    assert f"{_AGENT_TIMEOUT_ENV}=" not in api_env_example
+    assert f"{_API_TIMEOUT_ENV}=" not in agent_env_example
+    assert f"{_AGENT_TIMEOUT_ENV}=" in agent_env_example
+    assert f"{_API_TIMEOUT_ENV}:" not in compose_template
+    assert f"{_AGENT_TIMEOUT_ENV}:" not in compose_template
