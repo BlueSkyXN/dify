@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import inspect
 import json
+from contextlib import nullcontext
 from datetime import datetime
 from types import SimpleNamespace
 from typing import cast
