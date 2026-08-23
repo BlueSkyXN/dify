@@ -6,13 +6,13 @@ import type {
 } from '../app-card-utils'
 import type { SiteInfo } from '@/models/share'
 import { cn } from '@langgenius/dify-ui/cn'
-import { Dialog, DialogCloseButton, DialogContent, DialogTitle } from '@langgenius/dify-ui/dialog'
+import { Dialog, DialogClose, DialogContent, DialogTitle } from '@langgenius/dify-ui/dialog'
+import { IconButton } from '@langgenius/dify-ui/icon-button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@langgenius/dify-ui/tooltip'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import copy from 'copy-to-clipboard'
 import { Suspense, use, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import ActionButton from '@/app/components/base/action-button'
 import { createTheme } from '@/app/components/base/chat/embedded-chatbot/theme/theme'
 import { InputVarType } from '@/app/components/workflow/types'
 import { userProfileQueryOptions } from '@/features/account-profile/client'
@@ -305,7 +305,7 @@ const EmbeddedContent = ({
           <Tooltip>
             <TooltipTrigger
               render={
-                <ActionButton
+                <IconButton
                   aria-label={
                     (copiedOption === option
                       ? t(($) => $[`${prefixEmbedded}.copied`], { ns: 'appOverview' })
@@ -313,13 +313,12 @@ const EmbeddedContent = ({
                   }
                   onClick={() => void onClickCopy()}
                 >
-                  {copiedOption === option && (
+                  {copiedOption === option ? (
                     <span aria-hidden="true" className="i-ri-clipboard-fill size-4" />
-                  )}
-                  {copiedOption !== option && (
+                  ) : (
                     <span aria-hidden="true" className="i-ri-clipboard-line size-4" />
                   )}
-                </ActionButton>
+                </IconButton>
               }
             />
             <TooltipContent>
@@ -377,7 +376,17 @@ const Embedded = ({
         <DialogTitle className="shrink-0 title-2xl-semi-bold text-text-primary">
           {t(($) => $[`${prefixEmbedded}.title`], { ns: 'appOverview' })}
         </DialogTitle>
-        <DialogCloseButton />
+        <DialogClose
+          render={
+            <IconButton
+              aria-label={t(($) => $['operation.close'], { ns: 'common' })}
+              size="lg"
+              className="absolute inset-e-6 top-6"
+            >
+              <span aria-hidden className="i-ri-close-line size-4" />
+            </IconButton>
+          }
+        />
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           {isShow && (
             <EmbeddedContent

@@ -28,7 +28,6 @@ RunLayerSpec(
 
 | Config field | Meaning |
 | --- | --- |
-| `agent_stub_drive_ref` | Optional Drive ref used by shell-visible Agent Stub commands. |
 | `cli_tools` | CLI bootstrap declarations with install commands and scoped environment metadata. |
 | `env` | Normal environment variables exported to Shell commands. |
 | `secret_refs` | Names of secret environment variables supplied by the backend environment. |
@@ -48,10 +47,7 @@ fallback to the retired Sandbox protocol.
 
 ```python
 from dify_agent.runtime.compositor_factory import create_default_layer_providers
-from dify_agent.runtime_backend.profile import (
-    RuntimeBackendSettings,
-    create_runtime_backend_profile,
-)
+from dify_agent.runtime_backend.profile import RuntimeBackendSettings, create_runtime_backend_profile
 
 runtime_backend_profile = create_runtime_backend_profile(
     RuntimeBackendSettings(
@@ -199,6 +195,9 @@ request = CreateRunRequest(
                 type=DIFY_EXECUTION_CONTEXT_LAYER_TYPE_ID,
                 config=DifyExecutionContextLayerConfig(
                     tenant_id="92cca973-2d6f-45e0-906e-0b7eda5f2ccf",
+                    user_id="replace-with-user-id",
+                    user_from="account",
+                    app_id="replace-with-app-id",
                     agent_id="8d542564-159d-4168-985c-dde8d8ff6092",
                     agent_config_version_id="931a4cee-4434-4c1c-8fbd-0a3c7591095d",
                     agent_config_version_kind="snapshot",
@@ -225,7 +224,6 @@ request = CreateRunRequest(
                     plugin_id="langgenius/gemini",
                     model_provider="google",
                     model="gemini-2.5-flash",
-                    credentials={"google_api_key": "<redacted>"},
                 ),
             ),
         ]
@@ -259,7 +257,9 @@ The resource part serializes as:
 backend execution namespace. They are not host filesystem paths and are not
 sent in the run request. Shell commands start in `workspace_dir`, while `HOME`
 is forced to `home_dir`; `~` therefore resolves to the current Binding's
-materialized Home.
+materialized Home. The runner also sets `TMPDIR`, `TMP`, and `TEMP` directly to
+`workspace_dir`, making the active Workspace both the default `cwd` and the
+temporary working space.
 
 Workspace content persists with the Workspace until Dify API retires and
 collects it. Releasing a RuntimeLease ends only the current operation. Dify API can later

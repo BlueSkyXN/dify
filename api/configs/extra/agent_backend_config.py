@@ -37,9 +37,12 @@ class AgentBackendConfig(BaseSettings):
         default=3,
     )
 
-    AGENT_BACKEND_RUN_TIMEOUT_SECONDS: PositiveFloat = Field(
-        description="Total deadline for one Agent backend run event stream.",
-        default=1200,
+    AGENT_BACKEND_HOME_SNAPSHOT_TIMEOUT_SECONDS: PositiveFloat = Field(
+        description=(
+            "Client timeout for Agent backend calls that may carry a Home Snapshot transfer: "
+            "snapshot capture and delete, and Execution Binding creation that restores one. "
+        ),
+        default=45.0,
     )
 
     AGENT_BACKEND_BINDING_FILE_DOWNLOAD_TIMEOUT_SECONDS: PositiveFloat = Field(

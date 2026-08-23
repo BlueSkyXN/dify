@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
 from unittest.mock import Mock
 
 from fields.agent_fields import AgentComposerCandidatesResponse
 from models.agent_config_entities import AgentSoulConfig, DeclaredOutputConfig, DeclaredOutputType
+from models.dataset import Dataset
 from services.agent.composer_candidates import (
     MAX_CANDIDATES_PER_LIST,
     previous_node_output_candidates,
@@ -184,9 +184,16 @@ def _soul() -> AgentSoulConfig:
 
 
 def test_soul_candidates_lists_configured_items_only():
+    dataset = Dataset(
+        id="ds-1",
+        tenant_id="tenant-1",
+        name="产品手册",
+        description="desc",
+        created_by="account-1",
+    )
     lists, truncated = soul_candidates(
         agent_soul=_soul(),
-        dataset_lookup=lambda ids: {"ds-1": SimpleNamespace(name="产品手册", description="desc")},
+        dataset_lookup=lambda ids: {"ds-1": dataset},
         workspace_tools_loader=lambda: [
             {"id": "tavily/tavily_search", "name": "tavily_search", "provider": "tavily", "plugin_id": "lg/tavily"}
         ],

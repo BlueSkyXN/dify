@@ -107,4 +107,5 @@ jobs:
           push: false
           context: ${{ matrix.context }}
           file: ${{ matrix.file }}
+          build-contexts: ${{ matrix.build_contexts }}
           platforms: linux/amd64
