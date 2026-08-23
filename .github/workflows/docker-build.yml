@@ -25,7 +25,7 @@ concurrency:
 
 jobs:
   build-docker:
-    if: github.repository == 'langgenius/dify' && github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ${{ matrix.runs_on }}
     permissions:
       contents: read
@@ -78,7 +78,7 @@ jobs:
           platforms: ${{ matrix.platform }}
 
   build-docker-fork:
-    if: github.repository != 'langgenius/dify' || github.event.pull_request.head.repo.full_name != github.repository
+    if: github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -91,9 +91,6 @@ jobs:
           - service_name: 'web-amd64'
             context: '{{defaultContext}}'
             file: 'web/Dockerfile'
-          - service_name: 'agent-amd64'
-            context: '{{defaultContext}}'
-            file: 'dify-agent/Dockerfile'
           - service_name: 'local-sandbox-amd64'
             context: '{{defaultContext}}:dify-agent-runtime'
             file: 'docker/Dockerfile'
@@ -107,4 +104,5 @@ jobs:
           push: false
           context: ${{ matrix.context }}
           file: ${{ matrix.file }}
+          build-contexts: ${{ matrix.build_contexts }}
           platforms: linux/amd64

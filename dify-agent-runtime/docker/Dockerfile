@@ -20,17 +20,13 @@ RUN CGO_ENABLED=0 go build -o /bin/shellctl ./cmd/shellctl && \
 # ── Runtime stage ────────────────────────────────────────────────────────────
 FROM python:3.12-slim-bookworm AS production
 
-ARG COMMIT_SHA
 ARG NODE_VERSION=22.22.1
 ARG PNPM_VERSION=11.9.0
 ARG UV_VERSION=0.8.9
 
-LABEL org.opencontainers.image.revision="${COMMIT_SHA}"
-
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
-    COMMIT_SHA=${COMMIT_SHA}
+    PIP_NO_CACHE_DIR=1
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -75,9 +71,9 @@ COPY --from=go-builder /bin/shellctl-runner /usr/local/bin/shellctl-runner
 COPY --from=go-builder /bin/dify-agent /usr/local/bin/dify-agent
 
 RUN useradd --create-home --shell /bin/sh dify \
-    && mkdir -p /mnt/drive \
+    && mkdir -p /workspace \
     && chown dify:dify /home \
-    && chown -R dify:dify /home/dify /mnt/drive
+    && chown -R dify:dify /home/dify /workspace
 
 USER dify
 WORKDIR /home/dify

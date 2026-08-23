@@ -60,7 +60,6 @@ def create_app(settings: ServerSettings | None = None) -> FastAPI:
         agent_stub_token_factory = issue_agent_stub_token
     agent_stub_file_request_handler = resolved_settings.create_agent_stub_file_request_handler()
     agent_stub_config_request_handler = resolved_settings.create_agent_stub_config_request_handler()
-    agent_stub_drive_request_handler = resolved_settings.create_agent_stub_drive_request_handler()
     runtime_backend_profile = resolved_settings.build_runtime_backend_profile()
     layer_providers = create_default_layer_providers(
         plugin_daemon_url=resolved_settings.plugin_daemon_url,
@@ -112,6 +111,7 @@ def create_app(settings: ServerSettings | None = None) -> FastAPI:
             plugin_daemon_http_client=plugin_daemon_http_client,
             dify_api_http_client=dify_api_inner_http_client,
             shutdown_grace_seconds=resolved_settings.shutdown_grace_seconds,
+            run_timeout_seconds=resolved_settings.run_timeout_seconds,
             layer_providers=layer_providers,
         )
         state["store"] = store
@@ -146,7 +146,6 @@ def create_app(settings: ServerSettings | None = None) -> FastAPI:
             token_codec=agent_stub_token_codec,
             file_request_handler=agent_stub_file_request_handler,
             config_request_handler=agent_stub_config_request_handler,
-            drive_request_handler=agent_stub_drive_request_handler,
         )
     )
     return app

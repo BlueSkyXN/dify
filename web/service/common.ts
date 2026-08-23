@@ -6,7 +6,6 @@ import type {
 import type {
   DefaultModelResponse,
   Model,
-  ModelItem,
   ModelParameterRule,
   ModelTypeEnum,
 } from '@/app/components/header/account-setting/model-provider-page/declarations'
@@ -152,10 +151,6 @@ export const activateMember = ({
   body: ActivateMemberBody
 }): Promise<LoginResponse> => {
   return post<LoginResponse>(url, { body })
-}
-
-export const fetchModelProviderModelList = (url: string): Promise<{ data: ModelItem[] }> => {
-  return get<{ data: ModelItem[] }>(url)
 }
 
 export const fetchModelList = (url: string): Promise<{ data: Model[] }> => {
