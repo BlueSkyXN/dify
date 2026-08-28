@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "upstream_base": "8bdf702f737e31bc1f9e75def597e639f9b01f8c",
-  "max_patches": 5,
-  "max_files": 11,
+  "upstream_base": "9643dcacce2f475bfbdc9dd9fc02b12371194961",
+  "max_patches": 3,
+  "max_files": 7,
   "patches": [
     {
       "id": "alignment-contract",
@@ -12,9 +12,7 @@
         ".github/workflows/downstream-patch-gate.yml",
         "scripts/check-downstream-patches.py"
       ],
-      "tests": [
-        "python3 scripts/check-downstream-patches.py"
-      ],
+      "tests": ["python3 scripts/check-downstream-patches.py"],
       "upstream_issue": null,
       "upstream_pr": null,
       "drop_when": "Remove only if the fork is retired or an equivalent upstream-owned downstream patch contract is adopted.",
@@ -24,9 +22,7 @@
     {
       "id": "hfs-runtime-producer-caller",
       "reason": "Expose an explicitly authorized, immutable caller while keeping HFS runtime production logic in its owning repository.",
-      "paths": [
-        ".github/workflows/publish-hfs-runtime.yml"
-      ],
+      "paths": [".github/workflows/publish-hfs-runtime.yml"],
       "tests": [
         "actionlint .github/workflows/publish-hfs-runtime.yml",
         "python3 scripts/check-downstream-patches.py"
@@ -53,38 +49,6 @@
       "upstream_pr": null,
       "drop_when": "Remove when BlueSkyXN/dify stops publishing fork-owned images or upstream provides a credential-independent equivalent.",
       "owner": "BlueSkyXN downstream maintainers",
-      "status": "active"
-    },
-    {
-      "id": "agent-observability-colon-node-id",
-      "reason": "Preserve complete workflow node identifiers containing colons when parsing agent observability source filters.",
-      "paths": [
-        "api/services/agent/observability_service.py",
-        "api/tests/unit_tests/services/agent/test_agent_observability_service.py"
-      ],
-      "tests": [
-        "make test TARGET_TESTS=./api/tests/unit_tests/services/agent/test_agent_observability_service.py"
-      ],
-      "upstream_issue": null,
-      "upstream_pr": null,
-      "drop_when": "Remove after upstream parses colon-bearing node IDs for both label and timestamp workflow versions with equivalent tests.",
-      "owner": "BlueSkyXN agent maintainers",
-      "status": "active"
-    },
-    {
-      "id": "workflow-error-summary",
-      "reason": "Keep failed workflow summaries compact while retaining the complete multiline error in the expanded detail.",
-      "paths": [
-        "web/app/components/base/chat/chat/answer/__tests__/workflow-process.spec.tsx",
-        "web/app/components/base/chat/chat/answer/workflow-process.tsx"
-      ],
-      "tests": [
-        "cd web && vp test run --project unit app/components/base/chat/chat/answer/__tests__/workflow-process.spec.tsx"
-      ],
-      "upstream_issue": null,
-      "upstream_pr": null,
-      "drop_when": "Remove after upstream provides the same collapsed and expanded workflow error behavior with equivalent tests.",
-      "owner": "BlueSkyXN web maintainers",
       "status": "active"
     }
   ]

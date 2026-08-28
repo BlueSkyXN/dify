@@ -31,5 +31,5 @@ jobs:
       release_tag: ${{ inputs.release_tag }}
       confirm_publish: ${{ inputs.confirm_publish }}
       source_repository: BlueSkyXN/dify
-      upstream_base_ref: 8bdf702f737e31bc1f9e75def597e639f9b01f8c
+      upstream_base_ref: 9643dcacce2f475bfbdc9dd9fc02b12371194961
       contract_ref: 803b62dba6e5c7b565a01f650190c35578715887
