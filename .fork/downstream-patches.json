@@ -2,7 +2,7 @@
   "schema_version": 1,
   "upstream_base": "1264d29a4fec34229ceeb93421038146946c809d",
   "max_patches": 3,
-  "max_files": 7,
+  "max_files": 8,
   "patches": [
     {
       "id": "alignment-contract",
@@ -35,19 +35,21 @@
     },
     {
       "id": "fork-image-delivery",
-      "reason": "Build fork-owned GHCR images without upstream-only Depot or Docker Hub credentials and avoid duplicate builds on main.",
+      "reason": "Build fork-owned GHCR images without upstream-only Depot or Docker Hub credentials, avoid duplicate builds on main, and expose exact source provenance from every runtime image.",
       "paths": [
         ".github/workflows/build-push.yml",
         ".github/workflows/docker-build.yml",
-        ".github/workflows/fork-build-push.yml"
+        ".github/workflows/fork-build-push.yml",
+        "dify-agent-runtime/docker/Dockerfile"
       ],
       "tests": [
         "actionlint .github/workflows/fork-build-push.yml",
-        "Compare actionlint findings for build-push.yml and docker-build.yml with the pinned upstream_base; accept no new findings"
+        "Compare actionlint findings for build-push.yml and docker-build.yml with the pinned upstream_base; accept no new findings",
+        "Build and push fork images, then verify the Agent runtime image COMMIT_SHA and OCI revision equal the exact main commit"
       ],
       "upstream_issue": null,
       "upstream_pr": null,
-      "drop_when": "Remove when BlueSkyXN/dify stops publishing fork-owned images or upstream provides a credential-independent equivalent.",
+      "drop_when": "Remove when BlueSkyXN/dify stops publishing fork-owned images or upstream provides credential-independent delivery with equivalent per-image source provenance.",
       "owner": "BlueSkyXN downstream maintainers",
       "status": "active"
     }
