@@ -114,7 +114,10 @@ def _persist_agent_app(
 
 
 class TestCreateAppTransactionBoundary:
-    def test_commits_database_state_before_external_side_effects(self, sqlite_session: Session) -> None:
+    def test_commits_database_state_before_external_side_effects(
+        self, sqlite_session: Session, config_overrides: Callable[..., None]
+    ) -> None:
+        config_overrides(DEPLOYMENT_EDITION=DeploymentEdition.COMMUNITY)
         account = _persist_account(sqlite_session)
         phase_events: list[str] = []
         event.listen(sqlite_session, "after_commit", lambda _session: phase_events.append("commit"))
@@ -129,10 +132,9 @@ class TestCreateAppTransactionBoundary:
                 side_effect=lambda *_args: phase_events.append("external"),
             ),
             patch(
-                "services.app_service.FeatureService.get_system_features",
-                return_value=SimpleNamespace(webapp_auth=SimpleNamespace(enabled=False)),
+                "services.app_service.SystemFeatureService.is_webapp_auth_enabled",
+                return_value=False,
             ),
-            patch("services.app_service.dify_config.DEPLOYMENT_EDITION", DeploymentEdition.COMMUNITY),
         ):
             app = AppService().create_app(
                 account.current_tenant_id,
@@ -174,7 +176,10 @@ class TestCreateAppTransactionBoundary:
         assert sqlite_session.scalars(select(AppModelConfig)).all() == []
         assert sqlite_session.get(Agent, existing_agent.id) is existing_agent
 
-    def test_falls_back_when_default_model_schema_is_unavailable(self, sqlite_session: Session) -> None:
+    def test_falls_back_when_default_model_schema_is_unavailable(
+        self, sqlite_session: Session, config_overrides: Callable[..., None]
+    ) -> None:
+        config_overrides(DEPLOYMENT_EDITION=DeploymentEdition.COMMUNITY)
         account = _persist_account(sqlite_session)
         model_type_instance = MagicMock()
         model_type_instance.get_model_schema.side_effect = ValueError("Base model unknown-model not found")
@@ -192,10 +197,9 @@ class TestCreateAppTransactionBoundary:
             patch("services.app_service.app_was_created.send"),
             patch("services.app_service.enterprise_rbac_service.try_sync_creator_access_policy_member_bindings"),
             patch(
-                "services.app_service.FeatureService.get_system_features",
-                return_value=SimpleNamespace(webapp_auth=SimpleNamespace(enabled=False)),
+                "services.app_service.SystemFeatureService.is_webapp_auth_enabled",
+                return_value=False,
             ),
-            patch("services.app_service.dify_config.DEPLOYMENT_EDITION", DeploymentEdition.COMMUNITY),
         ):
             app = AppService().create_app(
                 account.current_tenant_id,
@@ -758,7 +762,7 @@ class TestAgentAppType:
             patch("services.app_service.app_was_deleted.send"),
             patch("services.app_service.BillingService"),
             patch("services.app_service.EnterpriseService"),
-            patch("services.app_service.FeatureService"),
+            patch("services.app_service.SystemFeatureService"),
             patch(
                 "services.app_service.remove_app_and_related_data_task.delay",
                 side_effect=lambda **_kwargs: events.append("enqueue-app-cleanup"),
@@ -909,7 +913,7 @@ class TestAgentAppType:
         with (
             patch("services.app_service.current_user", _account_identity(str(uuid4()))),
             patch("services.app_service.app_was_deleted.send"),
-            patch("services.app_service.FeatureService"),
+            patch("services.app_service.SystemFeatureService"),
             patch("services.app_service.BillingService"),
             patch("services.app_service.EnterpriseService"),
             patch("services.app_service.AgentWorkspaceService.retire_all_for_app", return_value=[]),

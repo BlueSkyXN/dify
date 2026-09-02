@@ -2,7 +2,7 @@
 
 import json
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 from uuid import uuid4
 
 import httpx
@@ -32,12 +32,19 @@ from services.account_activation_adapters import (
     RegisterServiceInvitationTokenStore,
 )
 from services.account_avatar_file_gateway import SQLAlchemyAccountAvatarFileGateway
+from services.account_email_registration_adapters import (
+    AccountServiceRegistrationGateway,
+    BillingAccountRegistrationPolicyGateway,
+    RedisEmailRegistrationSecurityGateway,
+    TokenManagerEmailRegistrationTokenGateway,
+)
 from services.app_site_service import AppSiteService
 from services.auth.data_source_api_key_auth_service import DataSourceApiKeyAuthService
 from services.billing_portal_service import BillingPortalService
 from services.billing_service import BillingService
 from services.compliance_download_service import ComplianceDownloadService
 from services.enterprise.enterprise_service import WebAppSettings
+from services.entities.mail_entities import InnerMailMessage
 from services.errors.enterprise import EnterpriseAPIError, EnterpriseAPINotFoundError
 from services.init_validation_service import InvalidInitializationPasswordError
 from services.partner_tenant_binding_service import PartnerTenantBindingService
@@ -46,6 +53,7 @@ from services.retention.workflow_run.archive_log_service import WorkflowRunArchi
 from services.tag_application_service import TagApplicationService
 from services.webapp_access_query_service import WebAppAccessUnavailableError
 from services.workflow_statistic_query_service import WorkflowStatisticQueryService
+from tests.unit_tests.config_override import apply_config_overrides
 
 
 @pytest.mark.parametrize(
@@ -103,12 +111,11 @@ def test_init_app_registers_services_for_the_current_app(
 ) -> None:
     app = Flask(__name__)
     monkeypatch.setattr(ext_application_services, "get_session_maker", lambda: sqlite_session_factory)
-    monkeypatch.setattr(
-        ext_application_services.dify_config,
-        "DEPLOYMENT_EDITION",
-        DeploymentEdition.COMMUNITY,
+    apply_config_overrides(
+        monkeypatch,
+        DEPLOYMENT_EDITION=DeploymentEdition.COMMUNITY,
+        INIT_PASSWORD="expected",
     )
-    monkeypatch.setattr(ext_application_services.dify_config, "INIT_PASSWORD", "expected")
 
     ext_application_services.init_app(app)
 
@@ -367,8 +374,17 @@ def test_build_application_services_wires_account_profile_repository(
     assert services.accounts.initialization._accounts is accounts
     assert not services.accounts.initialization._invitation_required
     assert services.accounts.change_email._accounts is accounts
+    email_registration = services.accounts.email_registration
+    assert email_registration._accounts is accounts
+    assert isinstance(email_registration._tokens, TokenManagerEmailRegistrationTokenGateway)
+    assert isinstance(email_registration._security, RedisEmailRegistrationSecurityGateway)
+    assert isinstance(email_registration._account_policy, BillingAccountRegistrationPolicyGateway)
+    assert isinstance(email_registration._registration, AccountServiceRegistrationGateway)
+    assert email_registration._registration._session_factory is sqlite_session_factory
     assert services.accounts.education._accounts is accounts
     assert services.accounts.deletion._accounts is accounts
+    assert services.notifications._accounts is accounts
+    assert services.step_by_step_tour._accounts is accounts
     assert services.accounts.deletion._memberships is services.workspace_queries._workspaces
     integrations = services.accounts.integrations._integrations
     assert isinstance(integrations, SQLAlchemyAccountIntegrationRepository)
@@ -436,6 +452,59 @@ def test_build_application_services_wires_data_source_api_key_auth(
     assert isinstance(services.data_source_api_key_auth, DataSourceApiKeyAuthService)
 
 
+@pytest.mark.parametrize(
+    ("substitutions", "expected_substitutions"),
+    [
+        pytest.param({"name": "Ada"}, {"name": "Ada"}, id="configured"),
+        pytest.param(None, {}, id="omitted-or-null"),
+    ],
+)
+def test_build_application_services_wires_inner_mail_dispatcher(
+    sqlite_session_factory: sessionmaker[Session],
+    substitutions: dict[str, object] | None,
+    expected_substitutions: dict[str, object],
+) -> None:
+    services = ext_application_services.build_application_services(
+        database_client=sqlite_session_factory,
+        deployment_edition=DeploymentEdition.COMMUNITY,
+        initialization_password="",
+        redis=MagicMock(spec=RedisClientWrapper),
+    )
+    message = InnerMailMessage(
+        recipients=("one@example.com", "two@example.com"),
+        subject="Subject",
+        body="Body",
+        substitutions=substitutions,
+    )
+
+    with patch("tasks.mail_inner_task.send_inner_email_task.delay") as delay:
+        services.inner_mail.send(message)
+
+    delay.assert_called_once_with(
+        to=["one@example.com", "two@example.com"],
+        subject="Subject",
+        body="Body",
+        substitutions=expected_substitutions,
+    )
+
+
+def test_build_application_services_uses_passed_edition_for_webapp_auth(
+    monkeypatch: pytest.MonkeyPatch,
+    sqlite_session_factory: sessionmaker[Session],
+) -> None:
+    apply_config_overrides(monkeypatch, DEPLOYMENT_EDITION=DeploymentEdition.COMMUNITY)
+
+    with patch("extensions.ext_application_services.DeploymentWebPassportAuthGateway") as auth_gateway:
+        ext_application_services.build_application_services(
+            database_client=sqlite_session_factory,
+            deployment_edition=DeploymentEdition.ENTERPRISE,
+            initialization_password="",
+            redis=MagicMock(spec=RedisClientWrapper),
+        )
+
+    assert auth_gateway.call_args.kwargs["webapp_auth_enabled"] is True
+
+
 def test_build_application_services_wires_trial_app_usage(
     sqlite_session_factory: sessionmaker[Session],
 ) -> None:
@@ -465,7 +534,7 @@ def test_build_application_services_adapts_enterprise_webapp_access_mode(
     sqlite_session_factory: sessionmaker[Session],
 ) -> None:
     with (
-        patch("extensions.ext_application_services.FeatureService.is_webapp_auth_enabled", return_value=True),
+        patch("extensions.ext_application_services.SystemFeatureService.is_webapp_auth_enabled", return_value=True),
         patch(
             "extensions.ext_application_services.EnterpriseService.WebAppAuth.get_app_access_mode_by_id",
             return_value=SimpleNamespace(access_mode="private_all"),
@@ -502,7 +571,7 @@ def test_build_application_services_maps_known_enterprise_errors(
     enterprise_error: Exception,
 ) -> None:
     with (
-        patch("extensions.ext_application_services.FeatureService.is_webapp_auth_enabled", return_value=True),
+        patch("extensions.ext_application_services.SystemFeatureService.is_webapp_auth_enabled", return_value=True),
         patch(
             "extensions.ext_application_services.EnterpriseService.WebAppAuth.get_app_access_mode_by_id",
             side_effect=enterprise_error,
@@ -525,7 +594,7 @@ def test_build_application_services_maps_invalid_access_mode_to_unavailable(
     sqlite_session_factory: sessionmaker[Session],
 ) -> None:
     with (
-        patch("extensions.ext_application_services.FeatureService.is_webapp_auth_enabled", return_value=True),
+        patch("extensions.ext_application_services.SystemFeatureService.is_webapp_auth_enabled", return_value=True),
         patch(
             "extensions.ext_application_services.EnterpriseService.WebAppAuth.get_app_access_mode_by_id",
             return_value=SimpleNamespace(access_mode="invalid"),
@@ -549,7 +618,7 @@ def test_build_application_services_does_not_hide_unknown_enterprise_errors(
 ) -> None:
     failure = TypeError("adapter bug")
     with (
-        patch("extensions.ext_application_services.FeatureService.is_webapp_auth_enabled", return_value=True),
+        patch("extensions.ext_application_services.SystemFeatureService.is_webapp_auth_enabled", return_value=True),
         patch(
             "extensions.ext_application_services.EnterpriseService.WebAppAuth.get_app_access_mode_by_id",
             side_effect=failure,
@@ -573,7 +642,7 @@ def test_build_application_services_wires_webapp_permission(
 ) -> None:
     with (
         patch(
-            "extensions.ext_application_services.FeatureService.is_webapp_auth_enabled", return_value=True
+            "extensions.ext_application_services.SystemFeatureService.is_webapp_auth_enabled", return_value=True
         ) as enabled,
         patch(
             "extensions.ext_application_services.EnterpriseService.WebAppAuth.get_app_access_mode_by_id",
@@ -595,7 +664,12 @@ def test_build_application_services_wires_webapp_permission(
 
     assert requires_permission is True
     assert allowed is False
-    enabled.assert_called_once_with()
+    enabled.assert_has_calls(
+        [
+            call(deployment_edition=DeploymentEdition.COMMUNITY),
+            call(deployment_edition=DeploymentEdition.COMMUNITY),
+        ]
+    )
     get_access_mode.assert_called_once_with("app-1")
     is_user_allowed.assert_called_once_with("user-1", "app-1")
 
@@ -618,7 +692,7 @@ def test_build_application_services_wires_dynamic_recommended_catalog(
     sqlite_session_factory: sessionmaker[Session],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(ext_application_services.dify_config, "HOSTED_FETCH_APP_TEMPLATES_MODE", "builtin")
+    apply_config_overrides(monkeypatch, HOSTED_FETCH_APP_TEMPLATES_MODE="builtin")
     services = ext_application_services.build_application_services(
         database_client=sqlite_session_factory,
         deployment_edition=DeploymentEdition.COMMUNITY,
@@ -643,7 +717,7 @@ def test_build_application_services_wires_dynamic_recommended_catalog(
         )
     assert result.recommended_apps
 
-    monkeypatch.setattr(ext_application_services.dify_config, "HOSTED_FETCH_APP_TEMPLATES_MODE", "invalid")
+    apply_config_overrides(monkeypatch, HOSTED_FETCH_APP_TEMPLATES_MODE="invalid")
     with pytest.raises(ValueError, match="invalid fetch recommended apps mode: invalid"):
         services.recommended_app_queries.list_recommended(
             requested_language="en-US",
