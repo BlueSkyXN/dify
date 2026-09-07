@@ -25,11 +25,11 @@ jobs:
     permissions:
       contents: write
       packages: read
-    uses: BlueSkyXN/Dify-all-in-one-HFS/.github/workflows/produce-dify-runtime.yml@cac801bda64a998b1ae01c0469311eb2ff001f16
+    uses: BlueSkyXN/Dify-all-in-one-HFS/.github/workflows/produce-dify-runtime.yml@130f2edbbb7e045a91a166dac4aac7ad2b6b82c4
     with:
       artifact_ref: ${{ inputs.artifact_ref }}
       release_tag: ${{ inputs.release_tag }}
       confirm_publish: ${{ inputs.confirm_publish }}
       source_repository: BlueSkyXN/dify
       upstream_base_ref: a9cb17eb6c11e6706f3387d0901ff94ee5c92762
-      contract_ref: cac801bda64a998b1ae01c0469311eb2ff001f16
+      contract_ref: 130f2edbbb7e045a91a166dac4aac7ad2b6b82c4
