@@ -9,6 +9,8 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
+from tests.unit_tests.config_override import apply_config_overrides
+
 
 def _walk_values(value):
     yield value
@@ -162,7 +164,7 @@ def test_apply_runtime_defaults_forces_swagger_routes_on(monkeypatch):
     from configs import dify_config
 
     monkeypatch.setenv("SWAGGER_UI_ENABLED", "false")
-    monkeypatch.setattr(dify_config, "SWAGGER_UI_ENABLED", False)
+    apply_config_overrides(monkeypatch, SWAGGER_UI_ENABLED=False)
 
     module.apply_runtime_defaults()
 
@@ -327,6 +329,9 @@ def test_generate_specs_writes_service_api_reference_descriptions(tmp_path: Path
     chat_success_content = chat_operation["responses"]["200"]["content"]
     assert chat_success_content["application/json"]["schema"] == {"$ref": "#/components/schemas/ChatBlockingResponse"}
     assert chat_success_content["text/event-stream"]["schema"] == {"type": "string"}
+
+    upload_bad_request = payload["paths"]["/files/upload"]["post"]["responses"]["400"]["description"]
+    assert "`file_extension_blocked`" in upload_bad_request
 
     schemas = payload["components"]["schemas"]
     expected_property_descriptions = {
@@ -598,6 +603,17 @@ def test_generate_specs_writes_service_api_reference_descriptions(tmp_path: Path
         "remote_url",
         "local_file",
     }
+
+
+def test_generate_specs_writes_web_file_upload_error_codes(tmp_path: Path):
+    module = _load_generate_swagger_specs_module()
+
+    written_paths = module.generate_specs(tmp_path)
+    web_path = next(path for path in written_paths if path.name == "web-openapi.json")
+    payload = json.loads(web_path.read_text(encoding="utf-8"))
+
+    upload_bad_request = payload["paths"]["/files/upload"]["post"]["responses"]["400"]["description"]
+    assert "`file_extension_blocked`" in upload_bad_request
 
 
 def test_standalone_inline_model_name_includes_list_constraints():

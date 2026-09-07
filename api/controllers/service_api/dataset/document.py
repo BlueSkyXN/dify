@@ -45,6 +45,7 @@ from controllers.common.schema import (
     register_schema_models,
 )
 from controllers.common.session import with_session
+from controllers.console.wraps import model_validate
 from controllers.service_api import service_api_ns
 from controllers.service_api.app.error import ProviderNotInitializeError
 from controllers.service_api.dataset.error import (
@@ -1014,8 +1015,9 @@ class DocumentListApi(DatasetApiResource):
 
         query = query.order_by(desc(Document.created_at), desc(Document.position))
 
+        effective_limit = min(query_params.limit, 100)
         paginated_documents = paginate_query(
-            query, session=session, page=query_params.page, per_page=query_params.limit, max_per_page=100
+            query, session=session, page=query_params.page, per_page=effective_limit, max_per_page=100
         )
         documents = paginated_documents.items
 
@@ -1028,8 +1030,8 @@ class DocumentListApi(DatasetApiResource):
 
         response = {
             "data": document_responses(documents, session=session),
-            "has_more": len(documents) == query_params.limit,
-            "limit": query_params.limit,
+            "has_more": query_params.page * effective_limit < paginated_documents.total,
+            "limit": effective_limit,
             "total": paginated_documents.total,
             "page": query_params.page,
         }
@@ -1069,9 +1071,8 @@ class DocumentBatchDownloadZipApi(DatasetApiResource):
     @service_api_ns.response(200, "ZIP archive generated successfully")
     @cloud_edition_billing_rate_limit_check("knowledge", "dataset")
     @with_session(write=False)
-    def post(self, session: Session, tenant_id, dataset_id: UUID):
-        payload = DocumentBatchDownloadZipPayload.model_validate(service_api_ns.payload or {})
-
+    @model_validate(DocumentBatchDownloadZipPayload)
+    def post(self, payload: DocumentBatchDownloadZipPayload, session: Session, tenant_id, dataset_id: UUID):
         upload_files, download_name = DocumentService.prepare_document_batch_download_zip(
             dataset_id=str(dataset_id),
             document_ids=[str(document_id) for document_id in payload.document_ids],

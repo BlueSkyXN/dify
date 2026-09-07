@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAtomValue } from 'jotai'
 import { useEffect } from 'react'
-import { setZendeskConversationFields } from '@/app/components/base/zendesk/utils'
+import { zendeskRuntime } from '@/app/components/base/zendesk/runtime'
 import { defaultPlan } from '@/app/components/billing/config'
 import { parseCurrentPlan } from '@/app/components/billing/utils'
 import {
@@ -38,10 +38,7 @@ export const ProviderContextProvider = ({ children }: ProviderContextProviderPro
   const { data: supportRetrievalMethods } = useSupportRetrievalMethods()
 
   const features = featuresQuery.data
-  const enableBilling = features?.billing.enabled ?? false
-  const plan = enableBilling && features ? parseCurrentPlan(features) : defaultPlan
-  const isFetchedPlan = featuresQuery.isSuccess && enableBilling
-  const isFetchedPlanInfo = featuresQuery.isFetched
+  const plan = deploymentEdition === 'CLOUD' && features ? parseCurrentPlan(features) : defaultPlan
   const enableEducationPlan = features?.education.enabled ?? false
   const enableSkill = features?.enable_skill ?? false
   const enableReplaceWebAppLogo = features?.can_replace_logo ?? false
@@ -60,15 +57,10 @@ export const ProviderContextProvider = ({ children }: ProviderContextProviderPro
       queryClient.invalidateQueries({ queryKey: commonQueryKeys.modelProviderDetails }),
     ]).then(() => undefined)
 
-  const refreshFeatures = () =>
-    queryClient
-      .invalidateQueries({ queryKey: consoleQuery.features.get.key() })
-      .then(() => undefined)
-
   // #region Zendesk conversation fields
   useEffect(() => {
     if (ZENDESK_FIELD_IDS.PLAN && plan.type) {
-      setZendeskConversationFields(
+      zendeskRuntime.setConversationFields(
         [
           {
             id: ZENDESK_FIELD_IDS.PLAN,
@@ -95,11 +87,7 @@ export const ProviderContextProvider = ({ children }: ProviderContextProviderPro
         ),
         supportRetrievalMethods: supportRetrievalMethods?.retrieval_method || [],
         plan,
-        isFetchedPlan,
-        isFetchedPlanInfo,
-        enableBilling,
         enableSkill,
-        onPlanInfoChanged: refreshFeatures,
         enableReplaceWebAppLogo,
         modelLoadBalancingEnabled,
         enableEducationPlan,

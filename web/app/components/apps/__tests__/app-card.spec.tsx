@@ -1,5 +1,5 @@
 import type { AppPartial } from '@dify/contracts/api/console/apps/types.gen'
-import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import * as React from 'react'
 import { STEP_BY_STEP_TOUR_TARGETS } from '@/app/components/step-by-step-tour/target-registry'
@@ -184,14 +184,6 @@ vi.mock('@/context/permission-state', async () => {
   const { createPermissionStateModuleMock } = await import('@/test/console/state-fixture')
   return createPermissionStateModuleMock(() => mockConsoleState)
 })
-
-// Mock provider context
-const mockOnPlanInfoChanged = vi.fn()
-vi.mock('@/context/provider-context', () => ({
-  useProviderContext: () => ({
-    onPlanInfoChanged: mockOnPlanInfoChanged,
-  }),
-}))
 
 // systemFeatures is seeded into the QueryClient via the local render helper.
 
@@ -1163,25 +1155,6 @@ describe('AppCard', () => {
       })
     })
 
-    it('should call onPlanInfoChanged after successful duplication', async () => {
-      render(<AppCard app={mockApp} />)
-
-      fireEvent.click(getOperationsTrigger())
-      await waitFor(() => {
-        fireEvent.click(screen.getByText('app.duplicate'))
-      })
-
-      await waitFor(() => {
-        expect(screen.getByTestId('duplicate-modal')).toBeInTheDocument()
-      })
-
-      fireEvent.click(screen.getByTestId('confirm-duplicate-modal'))
-
-      await waitFor(() => {
-        expect(mockOnPlanInfoChanged).toHaveBeenCalled()
-      })
-    })
-
     it('should handle copy failure', async () => {
       mockCopyApp.mockRejectedValueOnce(new Error('Copy failed'))
 
@@ -1290,6 +1263,21 @@ describe('AppCard', () => {
       await waitFor(() => {
         expect(screen.getByText('app.openInExplore')).toBeInTheDocument()
       })
+    })
+
+    it('should hide open in explore for SSO-restricted apps', async () => {
+      mockWebappAuthEnabled = true
+      const user = userEvent.setup()
+      const ssoApp = createMockApp({ access_mode: AccessMode.EXTERNAL_MEMBERS })
+
+      render(<AppCard app={ssoApp} />)
+
+      await user.click(getOperationsTrigger())
+      const menu = await screen.findByRole('menu')
+
+      expect(
+        within(menu).queryByRole('menuitem', { name: 'app.openInExplore' }),
+      ).not.toBeInTheDocument()
     })
   })
 

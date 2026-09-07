@@ -64,6 +64,7 @@ from services.skill_management_service import (
     validate_skill_description,
     validate_skill_name,
 )
+from tests.unit_tests.config_override import apply_config_overrides
 
 TENANT = "11111111-1111-1111-1111-111111111111"
 AGENT = "22222222-2222-2222-2222-222222222222"
@@ -2663,6 +2664,32 @@ def test_import_skill_package_creates_draft_and_rejects_name_conflicts() -> None
     assert exc_info.value.code == "skill_name_conflict"
 
 
+def test_import_skill_package_strips_root_alongside_macos_metadata_folder() -> None:
+    package = io.BytesIO()
+    with zipfile.ZipFile(package, "w") as archive:
+        archive.writestr(
+            "expense-sop/SKILL.md",
+            "---\nname: expense-sop\ndescription: Expenses\n---\n# Expenses",
+        )
+        archive.writestr("expense-sop/references/policy.md", "Policy")
+        # macOS Finder "Compress" adds an AppleDouble metadata sibling folder
+        # for archives whose source files carry extended attributes.
+        archive.writestr("__MACOSX/expense-sop/._SKILL.md", b"\x00")
+
+    service = SkillManagementService(tool_file_manager=_FakeToolFileManager())
+    imported = service.import_skill(
+        tenant_id=TENANT,
+        user_id=USER,
+        payload=SkillImportPayload(content=package.getvalue(), filename="expense-sop.zip"),
+    )
+
+    assert imported["name"] == "expense-sop"
+    imported_paths = [item["path"] for item in imported["files"]]
+    assert "SKILL.md" in imported_paths
+    assert "references/policy.md" in imported_paths
+    assert not any(path.startswith("__MACOSX") for path in imported_paths)
+
+
 def test_import_skill_package_rejects_missing_frontmatter_description() -> None:
     package = io.BytesIO()
     with zipfile.ZipFile(package, "w") as archive:
@@ -2682,7 +2709,7 @@ def test_import_skill_package_rejects_missing_frontmatter_description() -> None:
 
 
 def test_import_skill_package_rejects_archive_larger_than_upload_skill_limit(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("services.skill_management_service.dify_config.UPLOAD_SKILL_FILE_SIZE_LIMIT", 0)
+    apply_config_overrides(monkeypatch, UPLOAD_SKILL_FILE_SIZE_LIMIT=0)
 
     service = SkillManagementService(tool_file_manager=_FakeToolFileManager())
 
